@@ -1,0 +1,69 @@
+# CD for the supply_chain_lakehouse bundle: runs on every push to main (i.e. after a PR is merged).
+#   1. Unit tests
+#   2. Deploy to dev and run the end-to-end job (generate -> pipeline -> validate gold)
+#   3. Deploy to prod (gated by the `prod` environment's required reviewers)
+name: supply_chain_lakehouse CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supply_chain_lakehouse/**"
+      - ".github/workflows/supply_chain_lakehouse_*.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: supply_chain_lakehouse
+
+concurrency:
+  group: supply-chain-cd-main
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: pytest -v
+
+  deploy-dev:
+    name: Deploy and run in dev
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      DATABRICKS_AUTH_TYPE: oauth-m2m
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate --strict --target dev
+      - run: databricks bundle deploy --target dev
+      - name: Run end-to-end job (waits for completion, fails the workflow if the job fails)
+        run: databricks bundle run supply_chain_job --target dev
+
+  deploy-prod:
+    name: Deploy to prod
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      DATABRICKS_AUTH_TYPE: oauth-m2m
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks bundle validate --strict --target prod
+      - run: databricks bundle deploy --target prod
+      - name: Run job once in prod
+        run: databricks bundle run supply_chain_job --target prod

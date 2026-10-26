@@ -1,0 +1,8 @@
+resources:
+  volumes:
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.supply_chain.name}
+      name: landing
+      volume_type: MANAGED
+      comment: Landing zone for simulated source files (Salesforce, Excel, ERP, logistics, IoT)

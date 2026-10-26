@@ -1,0 +1,39 @@
+# Declarative Automation Bundle: supply_chain_lakehouse
+# Simulated Salesforce, Excel, ERP, logistics and manufacturing IoT sources
+# -> Lakeflow Spark Declarative Pipeline (bronze / silver / gold) -> orchestration job.
+bundle:
+  name: supply_chain_lakehouse
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds the demo schema
+    default: dev_demo
+  schema:
+    description: Schema for all demo tables and the landing volume
+    default: supply_chain
+
+targets:
+  dev:
+    # Personal / CI scratch deployment: resources are prefixed with [dev <user>],
+    # the schema is prefixed with dev_<user>_, and schedules are paused.
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-3fb58c7d-ac94.cloud.databricks.com
+    variables:
+      catalog: dev_demo
+
+  prod:
+    # Deployed only from GitHub Actions with the prod service principal.
+    # The deploying identity (the service principal) owns and runs the resources.
+    mode: production
+    workspace:
+      host: https://dbc-df52510d-0fb6.cloud.databricks.com
+    variables:
+      catalog: prod_demo
+    permissions:
+      - group_name: users
+        level: CAN_VIEW

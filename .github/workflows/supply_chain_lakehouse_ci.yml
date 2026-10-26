@@ -1,0 +1,48 @@
+# CI for the supply_chain_lakehouse bundle: runs on every pull request to main that touches it.
+#   1. Unit tests (pytest, no Databricks needed)
+#   2. Bundle validation against the dev workspace with the dev service principal
+name: supply_chain_lakehouse CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "supply_chain_lakehouse/**"
+      - ".github/workflows/supply_chain_lakehouse_*.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: supply_chain_lakehouse
+
+concurrency:
+  group: supply-chain-ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: pytest -v
+
+  validate-bundle:
+    name: Validate bundle (dev)
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      DATABRICKS_AUTH_TYPE: oauth-m2m
+    steps:
+      - uses: actions/checkout@v4
+      - uses: databricks/setup-cli@main
+      - run: databricks current-user me
+      - run: databricks bundle validate --strict --target dev

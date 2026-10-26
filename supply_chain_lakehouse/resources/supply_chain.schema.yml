@@ -1,0 +1,6 @@
+resources:
+  schemas:
+    supply_chain:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: Supply chain lakehouse demo (sales, logistics, manufacturing). Managed by DABs.

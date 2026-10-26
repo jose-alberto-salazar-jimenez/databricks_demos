@@ -1,0 +1,33 @@
+resources:
+  jobs:
+    supply_chain_job:
+      name: supply_chain_lakehouse_job
+      description: Generates simulated source data, refreshes the bronze/silver/gold pipeline, then validates the gold tables.
+      # Paused automatically in the dev target (development mode).
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: UTC
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${resources.schemas.supply_chain.name}
+        - name: volume
+          default: ${resources.volumes.landing.name}
+      tasks:
+        - task_key: generate_source_data
+          notebook_task:
+            notebook_path: ../src/data_generator/generate_sources.py
+
+        - task_key: refresh_pipeline
+          depends_on:
+            - task_key: generate_source_data
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.supply_chain_pipeline.id}
+
+        - task_key: validate_gold
+          depends_on:
+            - task_key: refresh_pipeline
+          notebook_task:
+            notebook_path: ../src/quality/validate_gold.py

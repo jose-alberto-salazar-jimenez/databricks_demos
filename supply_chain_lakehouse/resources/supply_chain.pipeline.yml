@@ -1,0 +1,14 @@
+resources:
+  pipelines:
+    supply_chain_pipeline:
+      name: supply_chain_lakehouse_pipeline
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.supply_chain.name}
+      serverless: true
+      channel: CURRENT
+      root_path: ../src/pipeline
+      libraries:
+        - glob:
+            include: ../src/pipeline/transformations/**
+      configuration:
+        landing_path: /Volumes/${var.catalog}/${resources.schemas.supply_chain.name}/${resources.volumes.landing.name}
