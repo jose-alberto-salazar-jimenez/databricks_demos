@@ -1,6 +1,6 @@
 # Demo talk track: CI/CD for a data engineering pipeline with Declarative Automation Bundles
 
-About 35 minutes. Shows a supply chain lakehouse (simulated Salesforce, Excel, ERP, logistics and plant IoT sources
+About 30 minutes (35 with the optional acts). Shows a supply chain lakehouse (simulated Salesforce, Excel, ERP, logistics and plant IoT sources
 -> Lakeflow Spark Declarative Pipeline bronze/silver/gold -> Lakeflow Job) promoted from a dev workspace to a prod
 workspace with GitHub Actions.
 
@@ -51,7 +51,11 @@ workspace with GitHub Actions.
    - Gold: sales vs. target, on-time delivery, inventory days of cover, machine OEE.
 4. `src/supply_chain_sim/` + `tests/`: "The plain-Python logic is unit tested in CI without a cluster."
 
-## Act 3: Inner loop, a developer in their own sandbox (5 min)
+## Act 3 (optional): Inner loop on `main`, before any change (5 min)
+
+**Skip by default.** Act 4 runs the same commands on your actual change, which is where they add value, and the
+setup checklist already pre-deployed your copy. Use this act only if the audience wants to see the developer
+sandbox on its own before any edit.
 
 **Run in the Cursor terminal:**
 ```bash
@@ -68,7 +72,7 @@ and the schema `dev_<me>_supply_chain`. CI has its own copy next to mine, and we
 - The job run graph: generate source data -> refresh pipeline -> validate gold.
 - The pipeline graph and the data quality results on the silver tables.
 
-## Act 4: Live change in Cursor: prod schedule + two gold KPIs (8 min)
+## Act 4: Live change in Cursor: prod schedule + two gold KPIs (10 min)
 
 **Create a feature branch:**
 ```bash
@@ -107,19 +111,33 @@ recomputes it with the new columns. No migration script."
     "avg_freight_cost is positive": f"SELECT COUNT_IF(avg_freight_cost <= 0) = 0 FROM {fqn}.gold_delivery_performance",
 ```
 
-**Verify in your sandbox before anyone reviews it:**
+**Verify in your sandbox before anyone reviews it (the developer inner loop):**
 ```bash
 pytest -v
 databricks bundle validate -t dev -p dev
 databricks bundle deploy -t dev -p dev
 databricks bundle run supply_chain_job -t dev -p dev
 ```
-In the dev workspace SQL editor (replace `<me>` with your prefix, shown by `databricks bundle summary -t dev -p dev`):
+
+**Say while it runs (about 2.5 min):** "This is my own copy. Look at the names:
+`[dev <me>] cicd_dabs__data_eng__supply_chain_job` and the schema `dev_<me>_supply_chain`. CI has its own copy next
+to mine, and we can't break each other. CI only validates the configuration; this run proves the PySpark code
+actually works before I open a PR."
+
+**Show in the dev workspace:**
+- The job run graph: generate source data -> refresh pipeline -> validate gold.
+- The pipeline graph and the data quality results on the silver tables.
+
+Then, in the dev workspace SQL editor (replace `<me>` with your prefix, shown by `databricks bundle summary -t dev -p dev`):
 ```sql
 SELECT carrier, warehouse_id, ship_month, delivered, late_shipments, on_time_rate, avg_freight_cost
 FROM dev_demo.dev_<me>_supply_chain.gold_delivery_performance
 ORDER BY ship_month DESC, carrier;
 ```
+
+**Short on time?** Skip this whole verify block and go straight to the PR; GitHub handles validation and
+deployment. Say: "Normally I'd deploy this to my sandbox first. The CD dev run will still stop it before prod if
+it's broken."
 
 **Commit, push and open the pull request:**
 ```bash
