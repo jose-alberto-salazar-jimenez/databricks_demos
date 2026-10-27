@@ -19,8 +19,6 @@ CHECKS = {
     "inventory covers all warehouses x SKUs": f"SELECT COUNT(*) = 32 FROM {fqn}.gold_inventory_coverage",
     "gold_machine_oee has rows": f"SELECT COUNT(*) > 0 FROM {fqn}.gold_machine_oee",
     "OEE within [0, 1]": f"SELECT COUNT_IF(oee < 0 OR oee > 1) = 0 FROM {fqn}.gold_machine_oee",
-    "late_shipments never exceed delivered": f"SELECT COUNT_IF(late_shipments > delivered) = 0 FROM {fqn}.gold_delivery_performance",
-    "avg_freight_cost is positive": f"SELECT COUNT_IF(avg_freight_cost <= 0) = 0 FROM {fqn}.gold_delivery_performance",
 }
 
 results = {name: bool(spark.sql(sql).collect()[0][0]) for name, sql in CHECKS.items()}

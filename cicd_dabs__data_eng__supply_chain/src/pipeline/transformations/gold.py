@@ -55,8 +55,6 @@ def gold_delivery_performance():
             F.round(F.avg(F.col("is_on_time").cast("double")), 3).alias("on_time_rate"),
             F.round(F.avg("transit_days"), 1).alias("avg_transit_days"),
             F.round(F.sum("freight_cost"), 2).alias("total_freight_cost"),
-            F.sum(F.when(F.col("is_delivered") & ~F.col("is_on_time"), 1).otherwise(0)).alias("late_shipments"),
-            F.round(F.avg("freight_cost"), 2).alias("avg_freight_cost"),
         )
     )
 
