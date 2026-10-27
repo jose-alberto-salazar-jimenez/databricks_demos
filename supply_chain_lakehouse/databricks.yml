@@ -27,13 +27,17 @@ targets:
       catalog: dev_demo
 
   prod:
-    # Deployed only from GitHub Actions with the prod service principal.
-    # The deploying identity (the service principal) owns and runs the resources.
+    # Deployed only from GitHub Actions with the prod service principal
+    # (jasj-demo-sp-cicd-prd). For a service principal, workspace.current_user.userName
+    # is its application ID, so the deploying SP owns, manages and runs everything.
     mode: production
     workspace:
       host: https://dbc-df52510d-0fb6.cloud.databricks.com
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: prod_demo
     permissions:
+      - service_principal_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
       - group_name: users
         level: CAN_VIEW
