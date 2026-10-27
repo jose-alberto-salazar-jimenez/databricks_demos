@@ -1,7 +1,7 @@
 resources:
   jobs:
     supply_chain_job:
-      name: supply_chain_lakehouse_job
+      name: cicd_dabs__data_eng__supply_chain_job
       description: Generates simulated source data, refreshes the bronze/silver/gold pipeline, then validates the gold tables.
       # Paused automatically in the dev target (development mode).
       schedule:

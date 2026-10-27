@@ -1,7 +1,7 @@
 resources:
   pipelines:
     supply_chain_pipeline:
-      name: supply_chain_lakehouse_pipeline
+      name: cicd_dabs__data_eng__supply_chain_pipeline
       catalog: ${var.catalog}
       schema: ${resources.schemas.supply_chain.name}
       serverless: true

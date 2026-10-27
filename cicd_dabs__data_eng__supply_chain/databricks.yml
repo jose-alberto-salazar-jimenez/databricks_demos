@@ -1,8 +1,8 @@
-# Declarative Automation Bundle: supply_chain_lakehouse
+# Declarative Automation Bundle: cicd_dabs__data_eng__supply_chain
 # Simulated Salesforce, Excel, ERP, logistics and manufacturing IoT sources
 # -> Lakeflow Spark Declarative Pipeline (bronze / silver / gold) -> orchestration job.
 bundle:
-  name: supply_chain_lakehouse
+  name: cicd_dabs__data_eng__supply_chain
 
 include:
   - resources/*.yml
