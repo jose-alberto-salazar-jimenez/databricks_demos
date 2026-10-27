@@ -72,6 +72,7 @@ databricks bundle summary  -t dev -p dev
 ```
 
 Demo ideas: add a new gold KPI or a stricter expectation on a branch, open a PR, watch CI, merge, approve prod.
+See [DEMO.md](DEMO.md) for the full step-by-step talk track.
 
 ## Branch protection
 
