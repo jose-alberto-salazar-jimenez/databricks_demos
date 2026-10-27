@@ -39,7 +39,7 @@ base_path = f"/Volumes/{catalog}/{schema}/{volume}"
 
 # Make the shared package in src/ importable (this notebook lives in src/data_generator/).
 sys.path.insert(0, os.path.abspath(os.path.join(os.getcwd(), "..")))
-from supply_chain_lakehouse import generators as g  # noqa: E402
+from supply_chain_sim import generators as g  # noqa: E402
 
 as_of = datetime.now(timezone.utc).replace(microsecond=0, tzinfo=None)
 stamp = as_of.strftime("%Y%m%dT%H%M%SZ")

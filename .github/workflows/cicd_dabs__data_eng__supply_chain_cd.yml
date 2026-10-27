@@ -1,20 +1,20 @@
-# CD for the supply_chain_lakehouse bundle: runs on every push to main (i.e. after a PR is merged).
+# CD for the cicd_dabs__data_eng__supply_chain bundle: runs on every push to main (i.e. after a PR is merged).
 #   1. Unit tests
 #   2. Deploy to dev and run the end-to-end job (generate -> pipeline -> validate gold)
 #   3. Deploy to prod (gated by the `prod` environment's required reviewers)
-name: supply_chain_lakehouse CD
+name: cicd_dabs__data_eng__supply_chain CD
 
 on:
   push:
     branches: [main]
     paths:
-      - "supply_chain_lakehouse/**"
-      - ".github/workflows/supply_chain_lakehouse_*.yml"
+      - "cicd_dabs__data_eng__supply_chain/**"
+      - ".github/workflows/cicd_dabs__data_eng__supply_chain_*.yml"
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: supply_chain_lakehouse
+    working-directory: cicd_dabs__data_eng__supply_chain
 
 concurrency:
   group: supply-chain-cd-main

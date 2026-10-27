@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 import pytest
 
-from supply_chain_lakehouse import generators as g
+from supply_chain_sim import generators as g
 
 AS_OF = datetime(2026, 10, 26, 6, 0, 0)
 

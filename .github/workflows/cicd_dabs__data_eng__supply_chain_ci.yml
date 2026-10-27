@@ -1,9 +1,9 @@
-# CI for the supply_chain_lakehouse bundle: runs on every pull request to main.
+# CI for the cicd_dabs__data_eng__supply_chain bundle: runs on every pull request to main.
 # No path filter on purpose: the protect-main ruleset requires these checks on every PR,
 # so they must report even when a PR only touches other files.
 #   1. Unit tests (pytest, no Databricks needed)
 #   2. Bundle validation against the dev workspace with the dev service principal
-name: supply_chain_lakehouse CI
+name: cicd_dabs__data_eng__supply_chain CI
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ on:
 
 defaults:
   run:
-    working-directory: supply_chain_lakehouse
+    working-directory: cicd_dabs__data_eng__supply_chain
 
 concurrency:
   group: supply-chain-ci-${{ github.head_ref || github.ref }}

@@ -1,5 +1,5 @@
 [project]
-name = "supply_chain_lakehouse"
+name = "cicd_dabs__data_eng__supply_chain"
 version = "0.1.0"
 description = "CI/CD demo: simulated supply chain sources -> SDP bronze/silver/gold, deployed with Declarative Automation Bundles"
 requires-python = ">=3.10"
