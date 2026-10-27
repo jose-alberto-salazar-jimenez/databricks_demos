@@ -228,6 +228,13 @@ has `job_schedule_cron: "0 0 6 * * ?"`.
 - **What if two developers deploy at once?** Development mode prefixes everyone's resources, so copies stay separate.
 - **Can deletes happen by accident?** Removing a resource from the bundle deletes it on the next deploy.
   That's why prod requires approval and `main` is protected.
+- **Why is there a Git folder in dev but not in prod?** Developers clone the repo into a Git folder in dev to write
+  code. Prod never gets a Git folder: CD runs `bundle deploy -t prod` as the prod service principal and uploads a
+  read-only copy of exactly what was on `main` to
+  `/Workspace/Users/<prod-SP-application-id>/.bundle/cicd_dabs__data_eng__supply_chain/prod/files/`
+  (easiest to reach from the prod job's task or the pipeline's source code paths; `users` have `CAN_VIEW`).
+  An editable clone in prod would let people change code or switch branches outside review, so prod would drift
+  from `main`. One-liner: "Developers work in Git folders in dev. Prod only receives what CD deploys from `main`."
 
 ## Making new metrics trustworthy (talking points, not part of the live demo)
 
