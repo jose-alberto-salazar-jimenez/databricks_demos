@@ -121,6 +121,51 @@ cicd_dabs__data_eng__supply_chain/
 GitHub environments `dev` and `prod` each need the secrets `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`,
 `DATABRICKS_CLIENT_SECRET` (service principal OAuth).
 
+## Two environments vs. three environments (reference)
+
+This demo promotes **dev -> prod**. Many organizations add a **staging** environment (**dev -> stg -> prd**).
+The branching model and the bundle code stay the same; staging is one more target and one more stop in CD.
+
+| Aspect | This demo (dev -> prod) | Three environments (dev -> stg -> prd) |
+| --- | --- | --- |
+| Workspaces and catalogs | 2 workspaces, `dev_demo` / `prod_demo` | A third workspace with a `stg_demo` catalog bound to it (cheaper option: a `stg_demo` catalog in the prod workspace, with less isolation) |
+| Identities | 2 service principals, GitHub environments `dev` and `prod` | A third service principal (`...-cicd-stg`) and a `stg` GitHub environment with its own 3 secrets |
+| Bundle | Targets `dev` and `prod` | Add a `stg` target (see below) |
+| Branching | Trunk-based: feature branch -> PR -> `main` | Unchanged: environments are bundle targets, not branches |
+| CD flow | Merge -> dev deploy + run -> approval -> prod | Merge -> dev deploy + run -> stg deploy + run (automatic) -> stg checks -> approval -> prod |
+| What runs where | Dev: smoke test on simulated data | Dev: integration on simulated data. Stg: production-like data, performance, business sign-off (UAT), metric reconciliation. Prod: release only |
+| Prod release trigger | Approval on the `main` run | Same approval, or a Git tag / GitHub Release (`v1.4.0`) that deploys exactly what was tested in stg, with rollback to the previous tag |
+| Promotion rule | Same commit everywhere | Same: build once, deploy the same commit and artifacts to every environment, never rebuild per environment |
+| Cost and lead time | Low | Higher: one more workspace, keeping staging data in step, slower path to prod |
+
+**When staging is worth it:** regulated releases or audits, several teams sharing prod, business sign-off before
+release, or sensitive prod data where dev only has simulated data. For a single-team pipeline like this one,
+dev -> prod with an approval gate is usually enough.
+
+**Example `stg` target** (reference only, not part of this bundle):
+
+```yaml
+targets:
+  stg:
+    mode: production
+    workspace:
+      host: https://<staging-workspace-host>
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: stg_demo
+      job_schedule_cron: "0 0 5 * * ?" # or keep the job paused and run it from CD only
+    permissions:
+      - service_principal_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
+      - group_name: users
+        level: CAN_VIEW
+```
+
+**CD changes:** add a `deploy-stg` job between `deploy-dev` and `deploy-prod` (`environment: stg`,
+`bundle deploy -t stg` + `bundle run supply_chain_job -t stg`), and make `deploy-prod` depend on it
+(`needs: deploy-stg`). For tag-based releases, move `deploy-prod` to a separate workflow triggered by
+`on: push: tags: ["v*"]`, and restrict the `prod` environment to deploy only from tags.
+
 ## Local demo (Cursor / terminal)
 
 ```bash
