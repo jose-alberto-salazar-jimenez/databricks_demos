@@ -4,6 +4,68 @@ CI/CD demo with **Declarative Automation Bundles** and **GitHub Actions**: simul
 **Lakeflow Spark Declarative Pipeline** (bronze -> silver -> gold) and orchestrated by a **Lakeflow Job**, promoted from a
 dev workspace to a prod workspace.
 
+## What is a Declarative Automation Bundle (DAB)?
+
+A **Declarative Automation Bundle** (formerly *Databricks Asset Bundle*) is Databricks' infrastructure-as-code format
+for data and AI projects. One folder in Git holds:
+
+- the **source code** (notebooks, Python files, SQL, pipeline transformations),
+- the **resource definitions** (jobs, pipelines, schemas, dashboards, ...) as YAML (or Python),
+- the **environment settings** (`targets` such as `dev` and `prod`, with variables, permissions and workspace hosts),
+- and optionally **tests** and **build artifacts** (Python wheels, JARs).
+
+The Databricks CLI then validates, deploys and runs the whole project as one unit:
+`databricks bundle validate | deploy | run | destroy -t <target>`. Because everything is plain files, the same
+project can be code reviewed, tested and promoted between workspaces by CI/CD, which is what this demo shows.
+
+Reference: [What are Declarative Automation Bundles?](https://docs.databricks.com/aws/en/dev-tools/bundles/index/)
+
+### What a bundle can manage (reference)
+
+Resource types you can declare under `resources:` (from the
+[bundle resources reference](https://docs.databricks.com/aws/en/dev-tools/bundles/resources/); the list grows with
+new CLI releases, so check it for the current set). Some types can only reference an existing object rather than
+create one; see the docs for each type. Names below are as in the docs; in YAML the mapping is plural, e.g.
+`resources: { jobs: ..., pipelines: ..., schemas: ... }`.
+
+| Area | Resource key(s) | What it is | In this demo |
+| --- | --- | --- | --- |
+| Orchestration | `job` | Lakeflow Jobs (tasks, schedules, triggers, parameters) | Yes |
+| Orchestration | `job_run` | A job run | |
+| Data engineering | `pipeline` | Lakeflow Spark Declarative Pipelines, and managed ingestion pipelines (connectors such as Salesforce, SQL Server, Workday) | Yes |
+| Data quality | `quality_monitor` | Data quality monitoring on a table | |
+| Unity Catalog | `catalog`, `schema`, `volume` | Catalogs, schemas and volumes | `schema`, `volume` |
+| Unity Catalog | `external_location` | External storage locations | |
+| Unity Catalog | `registered_model` | Models registered in Unity Catalog | |
+| Unity Catalog | `secret` | Unity Catalog secrets | |
+| Analytics / BI | `dashboard` | AI/BI dashboards | |
+| Analytics / BI | `genie_spaces` | Genie agents (natural-language Q&A over tables) | |
+| Analytics / BI | `alert` | Databricks SQL alerts | |
+| Analytics / BI | `sql_warehouse` | SQL warehouses | |
+| Apps | `app` | Databricks Apps | |
+| Machine learning / AI | `experiment` | MLflow experiments | |
+| Machine learning / AI | `model` | Legacy workspace models | |
+| Machine learning / AI | `model_serving_endpoint` | Model Serving endpoints | |
+| Machine learning / AI | `model_service`, `model_provider_service` | Model services and model provider services | |
+| Machine learning / AI | `mcp_service` | MCP services | |
+| Machine learning / AI | `vector_search_endpoint`, `vector_search_index` | Vector search endpoints and indexes | |
+| Lakebase (Postgres) | `postgres_project`, `postgres_branch`, `postgres_endpoint`, `postgres_database`, `postgres_role`, `postgres_catalog`, `postgres_synced_table`, `postgres_snapshot_schedule` | Lakebase Postgres projects and their parts | |
+| Lakebase (Postgres) | `database_instance`, `database_catalog`, `synced_database_table` | Database instances, database catalogs and synced tables | |
+| Compute | `cluster`, `cluster_policy`, `instance_pool` | Classic compute and its policies | |
+| Security | `secret_scope` | Workspace secret scopes | |
+
+Besides `resources:`, a bundle also handles:
+
+| Bundle section | What it does | In this demo |
+| --- | --- | --- |
+| `sync` / source files | Uploads notebooks, Python files and SQL to the workspace on deploy | Yes |
+| `artifacts` | Builds and uploads Python wheels or JARs used by jobs and pipelines | |
+| `variables` | Per-environment values (catalog, schedule, warehouse IDs, ...) | Yes |
+| `targets` | Environments (`dev`, `prod`) with their own mode, workspace, variables and permissions | Yes |
+| `permissions` | Who can view, run or manage the deployed resources | Yes (prod) |
+
+Tip: `databricks bundle generate` turns an existing job, pipeline, dashboard or app built in the UI into bundle YAML.
+
 ## Architecture
 
 ```
@@ -58,6 +120,51 @@ cicd_dabs__data_eng__supply_chain/
 
 GitHub environments `dev` and `prod` each need the secrets `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`,
 `DATABRICKS_CLIENT_SECRET` (service principal OAuth).
+
+## Two environments vs. three environments (reference)
+
+This demo promotes **dev -> prod**. Many organizations add a **staging** environment (**dev -> stg -> prd**).
+The branching model and the bundle code stay the same; staging is one more target and one more stop in CD.
+
+| Aspect | This demo (dev -> prod) | Three environments (dev -> stg -> prd) |
+| --- | --- | --- |
+| Workspaces and catalogs | 2 workspaces, `dev_demo` / `prod_demo` | A third workspace with a `stg_demo` catalog bound to it (cheaper option: a `stg_demo` catalog in the prod workspace, with less isolation) |
+| Identities | 2 service principals, GitHub environments `dev` and `prod` | A third service principal (`...-cicd-stg`) and a `stg` GitHub environment with its own 3 secrets |
+| Bundle | Targets `dev` and `prod` | Add a `stg` target (see below) |
+| Branching | Trunk-based: feature branch -> PR -> `main` | Unchanged: environments are bundle targets, not branches |
+| CD flow | Merge -> dev deploy + run -> approval -> prod | Merge -> dev deploy + run -> stg deploy + run (automatic) -> stg checks -> approval -> prod |
+| What runs where | Dev: smoke test on simulated data | Dev: integration on simulated data. Stg: production-like data, performance, business sign-off (UAT), metric reconciliation. Prod: release only |
+| Prod release trigger | Approval on the `main` run | Same approval, or a Git tag / GitHub Release (`v1.4.0`) that deploys exactly what was tested in stg, with rollback to the previous tag |
+| Promotion rule | Same commit everywhere | Same: build once, deploy the same commit and artifacts to every environment, never rebuild per environment |
+| Cost and lead time | Low | Higher: one more workspace, keeping staging data in step, slower path to prod |
+
+**When staging is worth it:** regulated releases or audits, several teams sharing prod, business sign-off before
+release, or sensitive prod data where dev only has simulated data. For a single-team pipeline like this one,
+dev -> prod with an approval gate is usually enough.
+
+**Example `stg` target** (reference only, not part of this bundle):
+
+```yaml
+targets:
+  stg:
+    mode: production
+    workspace:
+      host: https://<staging-workspace-host>
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: stg_demo
+      job_schedule_cron: "0 0 5 * * ?" # or keep the job paused and run it from CD only
+    permissions:
+      - service_principal_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
+      - group_name: users
+        level: CAN_VIEW
+```
+
+**CD changes:** add a `deploy-stg` job between `deploy-dev` and `deploy-prod` (`environment: stg`,
+`bundle deploy -t stg` + `bundle run supply_chain_job -t stg`), and make `deploy-prod` depend on it
+(`needs: deploy-stg`). For tag-based releases, move `deploy-prod` to a separate workflow triggered by
+`on: push: tags: ["v*"]`, and restrict the `prod` environment to deploy only from tags.
 
 ## Local demo (Cursor / terminal)
 

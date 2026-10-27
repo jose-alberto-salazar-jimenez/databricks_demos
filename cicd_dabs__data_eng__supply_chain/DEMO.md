@@ -127,6 +127,10 @@ git add -A
 git commit -m "prod schedule twice a day; gold: late_shipments and avg_freight_cost"
 git push -u origin feature/prod-schedule-and-delivery-kpis
 ```
+**Say (real-world note, keep it to 30 seconds):** "For the demo I'm eyeballing the result. With metrics people rely on,
+I'd prove them in my dev copy before pushing: agree the definition, test edge cases, reconcile gold against an
+independent query on silver, and turn those checks into gates. See *Making new metrics trustworthy* at the end."
+
 Open the PR in GitHub. CI starts on its own: `Unit tests` and `Validate bundle (dev)`.
 **Say:** "`main` is protected. I can't push to it, and I can't merge until both checks pass."
 Point at the PR diff: one line of YAML for the schedule, two lines of PySpark for the metrics.
@@ -206,6 +210,27 @@ has `job_schedule_cron: "0 0 6 * * ?"`.
 - **What if two developers deploy at once?** Development mode prefixes everyone's resources, so copies stay separate.
 - **Can deletes happen by accident?** Removing a resource from the bundle deletes it on the next deploy.
   That's why prod requires approval and `main` is protected.
+
+## Making new metrics trustworthy (talking points, not part of the live demo)
+
+If someone asks "how do you know `late_shipments` and `avg_freight_cost` are right?", walk through these layers,
+all done in your own dev copy before pushing:
+
+1. **Agree the definition first.** Most metric bugs are definition bugs. Is an in-transit shipment already past its
+   promised date "late"? Late by a minute or by a day? Shipments without a freight cost: excluded (what `avg` does)
+   or counted as 0? One currency? Write the answer in the table comment or the PR and get the business owner to confirm.
+2. **Unit test edge cases.** Move the gold logic into a plain function and test it in CI on a tiny hand-made
+   DataFrame: on time, late, not delivered, missing cost, delivered exactly on the promised date.
+3. **Reconcile in your dev copy.** After `bundle deploy` / `bundle run -t dev`, recompute both metrics straight from
+   `silver_shipments` with plain SQL and compare per carrier, warehouse and month: every difference should be 0.
+   Check totals tie out, `late_shipments <= delivered`, and spot-check 2-3 shipments from bronze to gold.
+4. **Make the checks automatic gates.** Put those invariants in `validate_gold.py` (optional Change 3) or as
+   expectations, so CD re-proves them in dev before prod and in prod after every deploy.
+5. **Test on production-like data.** Simulated data misses real quirks (returns, split shipments, time zones):
+   use a masked prod sample in dev, a staging target, or run old and new logic side by side for a few days.
+6. **Review with evidence.** Paste the definition and the reconciliation result in the PR, so the reviewer approves
+   numbers, not just code.
+7. **Monitor after release.** Watch for jumps in the late rate, rising nulls or sudden shifts in average cost.
 
 ## If something breaks live
 
