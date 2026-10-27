@@ -14,6 +14,9 @@ variables:
   schema:
     description: Schema for all demo tables and the landing volume
     default: supply_chain
+  job_schedule_cron:
+    description: Quartz cron for the orchestration job (paused automatically in dev)
+    default: "0 0 6 * * ?"
 
 targets:
   dev:
@@ -36,6 +39,7 @@ targets:
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: prod_demo
+      job_schedule_cron: "0 0 6 * * ?" # daily at 06:00 UTC
     permissions:
       - service_principal_name: ${workspace.current_user.userName}
         level: CAN_MANAGE
