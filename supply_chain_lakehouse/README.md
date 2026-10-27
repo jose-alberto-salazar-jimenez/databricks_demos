@@ -72,3 +72,8 @@ databricks bundle summary  -t dev -p dev
 ```
 
 Demo ideas: add a new gold KPI or a stricter expectation on a branch, open a PR, watch CI, merge, approve prod.
+
+## Branch protection
+
+`main` is protected by the `protect-main` ruleset: changes land only through pull requests, and the
+`Unit tests` and `Validate bundle (dev)` checks from the CI workflow must pass before merging.
