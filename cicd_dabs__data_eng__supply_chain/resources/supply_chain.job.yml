@@ -5,7 +5,7 @@ resources:
       description: Generates simulated source data, refreshes the bronze/silver/gold pipeline, then validates the gold tables.
       # Paused automatically in the dev target (development mode).
       schedule:
-        quartz_cron_expression: "0 0 6 * * ?"
+        quartz_cron_expression: ${var.job_schedule_cron}
         timezone_id: UTC
       max_concurrent_runs: 1
       parameters:
