@@ -1,0 +1,58 @@
+{
+  "name": "open_meteo_daily_ingestion",
+  "description": "Daily incremental ingestion of yesterday's Open-Meteo weather for a lat/lon grid: API -> UC volume (raw JSON) -> Auto Loader bronze -> silver MERGE. See README.md.",
+  "max_concurrent_runs": 1,
+  "queue": { "enabled": true },
+  "schedule": {
+    "quartz_cron_expression": "0 0 6 * * ?",
+    "timezone_id": "UTC",
+    "pause_status": "PAUSED"
+  },
+  "parameters": [
+    { "name": "catalog", "default": "<CATALOG>" },
+    { "name": "schema", "default": "open_meteo" },
+    { "name": "volume", "default": "raw" },
+    { "name": "landing_subdir", "default": "landing/daily" },
+    { "name": "checkpoint_subdir", "default": "_checkpoints" },
+    { "name": "create_if_missing", "default": "true" },
+    { "name": "bronze_table", "default": "bronze_open_meteo_daily" },
+    { "name": "silver_table", "default": "silver_open_meteo_daily" },
+    { "name": "start_date", "default": "" },
+    { "name": "end_date", "default": "" },
+    { "name": "lookback_days", "default": "1" },
+    { "name": "lat_min", "default": "-2" },
+    { "name": "lat_max", "default": "21" },
+    { "name": "lon_min", "default": "-96" },
+    { "name": "lon_max", "default": "-72" },
+    { "name": "grid_step_deg", "default": "1.0" },
+    { "name": "daily_variables", "default": "temperature_2m_max,temperature_2m_min,temperature_2m_mean,precipitation_sum,rain_sum,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,shortwave_radiation_sum,weather_code" },
+    { "name": "timezone", "default": "GMT" },
+    { "name": "api_url", "default": "https://archive-api.open-meteo.com/v1/archive" },
+    { "name": "api_key_secret_scope", "default": "" },
+    { "name": "api_key_secret_key", "default": "" },
+    { "name": "fail_on_dq_error", "default": "true" }
+  ],
+  "tasks": [
+    {
+      "task_key": "land_open_meteo",
+      "notebook_task": {
+        "notebook_path": "<GIT_FOLDER_PATH>/api_autoloader__data_eng__open_meteo_weather/notebooks/01_land_open_meteo_daily",
+        "source": "WORKSPACE"
+      },
+      "max_retries": 2,
+      "min_retry_interval_millis": 120000,
+      "timeout_seconds": 3600
+    },
+    {
+      "task_key": "bronze_silver_open_meteo",
+      "depends_on": [{ "task_key": "land_open_meteo" }],
+      "notebook_task": {
+        "notebook_path": "<GIT_FOLDER_PATH>/api_autoloader__data_eng__open_meteo_weather/notebooks/02_bronze_silver_open_meteo",
+        "source": "WORKSPACE"
+      },
+      "max_retries": 1,
+      "min_retry_interval_millis": 60000,
+      "timeout_seconds": 3600
+    }
+  ]
+}
