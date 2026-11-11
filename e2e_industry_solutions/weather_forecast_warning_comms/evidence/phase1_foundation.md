@@ -10,7 +10,7 @@ Schemas in `weather_forecast_warnings_comms` (query on `information_schema.schem
 bronze | default | gold | information_schema | silver
 ```
 
-## Bundle validation
+## Bundle validation 
 
 `databricks bundle validate --strict --target dev`: OK. Resolved resource:
 
