@@ -1,0 +1,63 @@
+# Declarative Automation Bundle: weather_forecast_warning_comms
+# Public weather / ENSO / extreme-event data -> Lakeflow (bronze / silver / gold)
+# -> ML risk model + LLM advisories -> Lakebase -> Databricks App (+ Genie Agent).
+# Catalog and medallion schemas are platform prerequisites (created once, outside the
+# bundle); the bundle owns everything inside them.
+bundle:
+  name: weather_forecast_warning_comms
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog for the solution
+    default: weather_forecast_warnings_comms
+  bronze_schema:
+    description: Raw ingested data and the landing volume
+    default: bronze
+  silver_schema:
+    description: Cleaned, conformed, location-matched data
+    default: silver
+  gold_schema:
+    description: Business-ready tables served to Lakebase, Genie and the app
+    default: gold
+  refresh_cron:
+    description: Quartz cron for the daily refresh job (paused automatically in dev)
+    default: "0 0 5 * * ?" # 05:00 daily
+  refresh_timezone:
+    description: Timezone for the daily refresh (UTC-5, no DST)
+    default: America/Bogota
+  llm_endpoint:
+    description: Foundation Model API endpoint for advisories
+    default: databricks-qwen3-next-80b-a3b-instruct
+  llm_fallback_endpoint:
+    description: Fallback endpoint if the primary is unavailable
+    default: databricks-gpt-oss-20b
+
+targets:
+  dev:
+    # Personal deployment: jobs/pipelines prefixed with [dev <user>], schedules paused.
+    # dev and prod share one workspace and catalog, and development mode does not prefix
+    # volumes, so the dev volume gets an explicit per-user name to avoid colliding with prod.
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-479a6e47-2e48.cloud.databricks.com
+    resources:
+      volumes:
+        landing:
+          name: dev_${workspace.current_user.short_name}_landing
+
+  prod:
+    # Shared deployment. Today deployed by the owner; to be moved to a GitHub Actions
+    # service principal (see CHANGELOG / ARCHITECTURE section 7).
+    mode: production
+    workspace:
+      host: https://dbc-479a6e47-2e48.cloud.databricks.com
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE
+      - group_name: users
+        level: CAN_VIEW

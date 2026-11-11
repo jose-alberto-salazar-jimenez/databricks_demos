@@ -1,0 +1,10 @@
+resources:
+  volumes:
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.bronze_schema}
+      name: landing
+      volume_type: MANAGED
+      comment: >-
+        Landing zone for raw API files (Open-Meteo, NOAA ONI, GDACS, GeoNames) and
+        Lakebase citizen-feedback exports. One folder per source and run date.
