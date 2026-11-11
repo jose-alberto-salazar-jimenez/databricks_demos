@@ -6,7 +6,7 @@
 #   0. Detect changes (dorny/paths-filter)
 #   1. Unit tests (pytest, no Databricks needed)
 #   2. Bundle validation against the dev workspace with the dev service principal
-# workflow_dispatch always runs the full checks.
+# workflow_dispatch always runs the full checks. 
 name: cicd_dabs__data_eng__supply_chain CI
 
 on:
