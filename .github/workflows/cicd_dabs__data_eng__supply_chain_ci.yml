@@ -1,8 +1,12 @@
-# CI for the cicd_dabs__data_eng__supply_chain bundle: runs on every pull request to main.
-# No path filter on purpose: the protect-main ruleset requires these checks on every PR,
-# so they must report even when a PR only touches other files.
+# CI for the cicd_dabs__data_eng__supply_chain bundle: triggered on every pull request to main.
+# No trigger-level path filter on purpose: the protect-main ruleset requires these checks on
+# every PR, so they must report even when a PR only touches other files. Instead, a `changes`
+# job detects whether this bundle (or this workflow) changed; if not, the checks below are
+# skipped, and GitHub treats skipped required checks as passing.
+#   0. Detect changes (dorny/paths-filter)
 #   1. Unit tests (pytest, no Databricks needed)
 #   2. Bundle validation against the dev workspace with the dev service principal
+# workflow_dispatch always runs the full checks.
 name: cicd_dabs__data_eng__supply_chain CI
 
 on:
@@ -19,8 +23,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      supply_chain: ${{ steps.filter.outputs.supply_chain }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            supply_chain:
+              - 'cicd_dabs__data_eng__supply_chain/**'
+              - '.github/workflows/cicd_dabs__data_eng__supply_chain_*.yml'
+
   unit-tests:
     name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.supply_chain == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +56,8 @@ jobs:
 
   validate-bundle:
     name: Validate bundle (dev)
-    needs: unit-tests
+    needs: [changes, unit-tests]
+    if: needs.changes.outputs.supply_chain == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: dev
     env:
