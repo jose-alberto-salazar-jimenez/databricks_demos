@@ -59,7 +59,7 @@ sequenceDiagram
   participant L as LLM (AI Gateway)
   participant LB as Lakebase
   J->>LB: export new citizen feedback to bronze
-  J->>API: fetch ~8.1k grid points (past 92d + 16d forecast), ONI, GDACS
+  J->>API: fetch 8,060 grid points (yesterday + today + 11d, 10 daily vars), ONI, GDACS
   API-->>V: JSON files (one folder per source/date)
   J->>P: update bronze -> silver -> gold
   J->>M: score risk per cell and hazard
@@ -116,7 +116,7 @@ erDiagram
 | --- | --- | --- |
 | `databricks.yml` | Bundle root: variables (catalog, schemas), dev/prod targets | CLI |
 | `resources/*.yml` | Job, pipeline, serving endpoint, app, Lakebase definitions | Bundle deploy |
-| `src/ingestion/` | Grid generation, API calls with retry/backoff, writes to volume | Serverless job |
+| `src/ingestion/` | `ingest_sources` notebook (parameters, orchestration) + `ingest_lib.py` (retry/backoff, rate limiter, land grid, one function per source) | Serverless job |
 | `src/pipeline/` | SDP tables and expectations, bronze to gold | Serverless pipeline |
 | `src/ml/` | Features, training, registration, batch scoring, advisory prompts | Serverless job |
 | `src/app/` | Dash pages, callbacks, Lakebase data access | Databricks Apps |
@@ -152,7 +152,13 @@ Flow: feature branch -> PR (bundle validate in CI) -> merge to main -> deploy pr
 ## 8. Non-functional design
 
 * Cost: daily batch, serverless compute, open low-cost LLM, cached advisories.
-* Limits: ~8.1k points/day within Open-Meteo free tier (10k calls/day).
+* Limits: 8,060 points/day within Open-Meteo free tier (10k/day, 5k/hour, 600/min, 300k/month).
+  One location = 1 call only while <=10 variables and <=14 days, so the request stays at that size;
+  the ingestion notebook rate-limits to 550/min and 4,800/hour (full grid ~1h45m) and stops a
+  run whose weighted calls would exceed `daily_call_budget` (9,500).
+* Horizon +/- 11 days: each daily run stores yesterday + today + 11 days ahead; gold builds the
+  past 11 days from stored runs (observed-like `yesterday` values). A one-off backfill run
+  (`past_days=11, forecast_days=1`, 12 days = 1 call/point) seeds history before the first week.
 * Reliability: idempotent daily loads keyed by run date; failed days can be re-run.
 * Quality: SDP expectations (coordinates, ranges, nulls); model compared to rule baseline.
 * LLM safety: values injected from gold, no invented numbers or causes, sampled evaluation.
