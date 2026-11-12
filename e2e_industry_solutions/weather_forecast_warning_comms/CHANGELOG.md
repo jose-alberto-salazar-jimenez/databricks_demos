@@ -14,10 +14,6 @@ How to use:
 
 ### Added
 
-* Bundle skeleton: `databricks.yml` (variables for catalog, schemas, refresh schedule, LLM
-  endpoints; `dev` and `prod` targets) and `resources/landing.volume.yml`.
-* Managed landing volume in `bronze` (dev: `dev_<user>_landing`, prod: `landing`).
-* `evidence/phase1_foundation.md` with validate/deploy output.
 * Phase 2 ingestion: `src/ingestion/ingest_sources` notebook landing Natural Earth boundaries,
   a land grid (8,060 cells), GeoNames towns, NOAA ONI, GDACS events and Open-Meteo daily
   forecasts into the landing volume, with retries, free-tier rate limiting and resumable batches.
@@ -34,6 +30,15 @@ How to use:
 * Ingestion helpers (HTTP retry, rate limiter, writers, call weighting) and per-source functions
   moved from the notebook to `src/ingestion/ingest_lib.py`; the notebook keeps parameters and
   orchestration only (notebook 15.1k -> 6.6k chars, module 8.1k, both under the 9k read limit).
+
+## [1.1.0] - 2026-11-12
+
+### Added
+
+* Bundle skeleton: `databricks.yml` (variables for catalog, schemas, refresh schedule, LLM
+  endpoints; `dev` and `prod` targets) and `resources/landing.volume.yml`.
+* Managed landing volume in `bronze` (dev: `dev_<user>_landing`, prod: `landing`).
+* `evidence/phase1_foundation.md` with validate/deploy output.
 
 ## [1.0.0] - 2026-11-11
 
