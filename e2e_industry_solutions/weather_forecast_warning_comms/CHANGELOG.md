@@ -19,6 +19,13 @@ How to use:
   forecasts into the landing volume, with retries, free-tier rate limiting and resumable batches.
 * `resources/daily_refresh.job.yml`: daily job (05:00 America/Bogota) running the ingestion task.
 * `evidence/phase2_ingestion.md` with the Costa Rica test run.
+* Backfills: `src/ingestion/backfill_sources` notebook and `resources/backfill.job.yml` (manual).
+  `mode=recent`: past 11 days + today for all cells (forecast API). `mode=history`: 2-year ERA5
+  reanalysis (Open-Meteo archive API) for GDACS-event cells + 60 random cells per country. Runs
+  stop at `max_calls` and resume on the next run.
+* Data-source lineage: `source_registry.py` (sources, licenses, resolution); every landed row has
+  `data_source`, `source_url`, `source_model`, `request_mode`; manifest
+  `reference/data_sources/sources.jsonl` for a `dim_data_source` table. GDACS queries now page.
 
 ### Changed
 
@@ -30,6 +37,16 @@ How to use:
 * Ingestion helpers (HTTP retry, rate limiter, writers, call weighting) and per-source functions
   moved from the notebook to `src/ingestion/ingest_lib.py`; the notebook keeps parameters and
   orchestration only (notebook 15.1k -> 6.6k chars, module 8.1k, both under the 9k read limit).
+* Ingestion code split into `ingest_lib.py` (core + generic Open-Meteo downloader with a
+  `stop` budget mode and shared rate limiter), `context_lib.py` (grid, GeoNames, ENSO, GDACS) and
+  `history_lib.py` (ERA5 sample); `ingest_lib` keeps compatible `land_reference/enso/gdacs` names.
+
+### Fixed
+
+* Forecast resume skipped batches by index only, so a re-run on the same `run_date` with other
+  countries or `max_points` skipped the wrong cells. Batch files are now named
+  `batch_<index>_<fingerprint>.jsonl` (hash of horizon + cell ids) and only identical requests skip.
+* Landing files are written to `.tmp` and renamed, so an interrupted run leaves no partial file.
 
 ## [1.1.0] - 2026-11-12
 

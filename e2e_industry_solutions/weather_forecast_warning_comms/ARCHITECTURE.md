@@ -110,13 +110,32 @@ erDiagram
 * Governance: comments on all tables, tags (`domain`, `pii`), column mask on feedback
   contact fields, app service principal has SELECT on gold only.
 
+### Data sources and lineage
+
+Every landed JSONL row carries `data_source`, `source_url`, `source_model` and `request_mode`;
+raw text files (ENSO, GeoNames) get `data_source` from their folder in bronze.
+`reference/data_sources/sources.jsonl` (from `source_registry.py`) becomes `dim_data_source`
+(provider, product, license, resolution). Silver and gold keep `data_source` and `request_mode`
+so each value shows where it came from.
+
+| data_source | request_mode | Landing folder | Used for |
+| --- | --- | --- | --- |
+| `open_meteo_forecast` | `daily` | `open_meteo_forecast/run_date=` | today + 11 days; yesterday builds the past 11 days |
+| `open_meteo_forecast` | `backfill_recent` | `open_meteo_forecast_backfill/run_date=` | one-off past 11 days, all cells |
+| `open_meteo_era5` | `backfill_history` | `open_meteo_era5/year=` | 2-year history for a cell sample (ML) |
+| `gdacs` | `daily` / `backfill_history` | `gdacs/`, `gdacs_history/` | extreme events, history sample selection |
+| `noaa_cpc_oni`, `geonames`, `natural_earth` | - | `enso_oni/`, `geonames/`, `reference/` | ENSO phase, towns, land grid |
+
+When sources overlap for a cell and date, silver keeps all rows; gold picks observed-like values
+by priority ERA5 > forecast-API past days, and exposes the chosen `data_source`.
+
 ## 5. Codebase structure
 
 | Path | Responsibility | Runs on |
 | --- | --- | --- |
 | `databricks.yml` | Bundle root: variables (catalog, schemas), dev/prod targets | CLI |
 | `resources/*.yml` | Job, pipeline, serving endpoint, app, Lakebase definitions | Bundle deploy |
-| `src/ingestion/` | `ingest_sources` notebook (parameters, orchestration) + `ingest_lib.py` (retry/backoff, rate limiter, land grid, one function per source) | Serverless job |
+| `src/ingestion/` | Notebooks `ingest_sources` (daily) and `backfill_sources` (manual); modules `source_registry.py` (sources, licenses, tags), `ingest_lib.py` (retry, rate limiter, Open-Meteo), `context_lib.py` (grid, GeoNames, ENSO, GDACS), `history_lib.py` (ERA5 sample) | Serverless jobs |
 | `src/pipeline/` | SDP tables and expectations, bronze to gold | Serverless pipeline |
 | `src/ml/` | Features, training, registration, batch scoring, advisory prompts | Serverless job |
 | `src/app/` | Dash pages, callbacks, Lakebase data access | Databricks Apps |
