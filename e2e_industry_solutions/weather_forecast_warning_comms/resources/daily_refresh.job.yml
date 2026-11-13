@@ -1,0 +1,38 @@
+# Daily refresh: land public sources in the landing volume (bronze input).
+# Later phases add tasks: medallion pipeline -> risk scoring -> LLM advisories -> Lakebase sync.
+resources:
+  jobs:
+    daily_refresh:
+      name: weather_forecast_warning_comms_daily_refresh
+      description: Daily ingestion of Open-Meteo forecasts, NOAA ONI, GDACS events and reference data.
+      schedule:
+        quartz_cron_expression: ${var.refresh_cron}
+        timezone_id: ${var.refresh_timezone}
+      max_concurrent_runs: 1
+      timeout_seconds: 14400 # full grid takes ~1h45m under the Open-Meteo hourly limit
+      parameters:
+        - name: run_date
+          default: "" # blank = today (UTC)
+        - name: countries
+          default: PER,ECU,COL,PAN,CRI
+        - name: max_points
+          default: "0" # 0 = full grid; set e.g. 50 for a quick test run
+        - name: sources
+          default: reference,enso,gdacs,forecast
+        - name: past_days
+          default: "1" # yesterday; past 11 days are assembled from stored runs (backfill: 11)
+        - name: forecast_days
+          default: "12" # today + 11 days ahead (13 days total = 1 Open-Meteo call per point)
+      tasks:
+        - task_key: ingest_sources
+          notebook_task:
+            notebook_path: ../src/ingestion/ingest_sources.ipynb
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.bronze_schema}
+              volume: ${resources.volumes.landing.name}
+          max_retries: 1
+          min_retry_interval_millis: 300000
+      tags:
+        project: weather_forecast_warning_comms
+        layer: ingestion

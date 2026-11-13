@@ -1,0 +1,36 @@
+# Manual backfills (no schedule). Run on days WITHOUT the full daily_refresh run (free tier 10k/day).
+#   mode=recent : forecast-API past 11 days + today for every cell (8,060 calls, one run)
+#   mode=history: ERA5 reanalysis for a sample of cells; capped by max_calls, re-run to resume
+resources:
+  jobs:
+    backfill:
+      name: weather_forecast_warning_comms_backfill
+      description: Capped, resumable backfills tagged with data_source and request_mode.
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      parameters:
+        - name: mode
+          default: recent
+        - name: countries
+          default: PER,ECU,COL,PAN,CRI
+        - name: max_calls
+          default: "9000"
+        - name: run_date
+          default: "" # recent: blank = today; pass the same date to resume
+        - name: history_start
+          default: "2024-11-01"
+        - name: history_end
+          default: "2026-10-31"
+        - name: per_country
+          default: "60"
+      tasks:
+        - task_key: backfill_sources
+          notebook_task:
+            notebook_path: ../src/ingestion/backfill_sources.ipynb
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.bronze_schema}
+              volume: ${resources.volumes.landing.name}
+      tags:
+        project: weather_forecast_warning_comms
+        layer: ingestion
