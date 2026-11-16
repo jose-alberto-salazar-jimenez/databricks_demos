@@ -14,6 +14,10 @@ How to use:
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-16
+
+Phase 1 - foundation (branch `feature/msd-phase1-foundation`).
+
 ### Added
 
 * Bundle skeleton: `databricks.yml` (variables for catalog, schema, raw volume, model name,
