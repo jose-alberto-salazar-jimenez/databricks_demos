@@ -1,0 +1,12 @@
+resources:
+  volumes:
+    raw:
+      catalog_name: ${var.catalog}
+      # Reference the schema resource so the volume follows any target-specific schema name
+      # and is created after it.
+      schema_name: ${resources.schemas.msd.name}
+      name: ${var.raw_volume}
+      volume_type: MANAGED
+      comment: >-
+        Raw zone. Upload the NEU surface defect zip under zip/; the ingest job extracts
+        images to images/<class>/ for Auto Loader.

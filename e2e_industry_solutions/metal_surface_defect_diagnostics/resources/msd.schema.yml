@@ -1,0 +1,8 @@
+resources:
+  schemas:
+    msd:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: >-
+        Metal Surface Defect Diagnostics POC: image index tables, SME defect playbook index,
+        evaluation metrics, raw volume and the registered defect classifier.
