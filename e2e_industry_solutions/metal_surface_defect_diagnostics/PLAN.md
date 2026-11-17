@@ -1,6 +1,6 @@
 # Metal Surface Defect Diagnostics - Implementation Plan
 
-Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) in progress.
+Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0.
 
 ## 1. Goal
 
@@ -123,9 +123,9 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 
 | Object | Type | Purpose |
 | --- | --- | --- |
-| `raw` | Volume | Uploaded dataset zip (`zip/`) and extracted images (`images/<class>/`) |
-| `image_bronze` | Delta table | Auto Loader output: path, modificationTime, length, content (binary), label |
-| `image_index` | Delta table | path, label, split (train/val/test) |
+| `raw` | Volume | Uploaded dataset zip (root or `zip/`), extracted images (`images/<source_split>/<class>/`), Auto Loader checkpoint (`_checkpoints/`) |
+| `image_bronze` | Delta table | Auto Loader output: path, modificationTime, length, content (binary), file_name, label, source_split, ingested_at |
+| `image_index` | Delta table | path, file_name, label, source_split, split (train/val/test), length |
 | `defect_playbook` | Delta table (playbook index) | One row per class: playbook_id, category, description, root causes, risk, inspection, repair, monitoring, escalation, playbook_version, approved_by |
 | `model_eval_metrics` | Delta table | Accuracy, per-class precision/recall/F1 per model version |
 | `msd_defect_classifier` | UC model | Registered classifier, alias `champion` |
@@ -153,7 +153,7 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 | 1 Foundation | 1 | Git folder + bundle skeleton, variables, targets | `bundle validate --strict --target dev` passes |
 | 1 Foundation | 2 | Schema and volume resources | Schema and `raw` volume exist after deploy |
 | 1 Foundation | 9 | Docs | README, ARCHITECTURE (with diagrams), CHANGELOG 1.0.0 + Unreleased, PLAN |
-| 2 Data | 3 | Ingest notebook (Auto Loader) | `image_bronze` and `image_index` have 1,800 rows, 300 per class, stratified split; re-running loads no duplicates |
+| 2 Data | 3 | Ingest notebook (Auto Loader) | `image_bronze` and `image_index` have 1,800 rows, 300 per class; split keeps the Kaggle split (240 train, 30 val, 30 test per class); re-running loads no duplicates and changes no split |
 | 2 Data | 5 | Playbook YAML + notebook | `defect_playbook` has 6 rows, one per class, no null key fields |
 | 3 Model | 4 | Train notebook | Model registered in UC with `champion` alias; validation accuracy reported |
 | 3 Model | 6 | Evaluate notebook | Test metrics written; target test accuracy >= 90% |

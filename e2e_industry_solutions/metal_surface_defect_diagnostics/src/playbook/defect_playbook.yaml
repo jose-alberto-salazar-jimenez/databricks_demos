@@ -1,0 +1,220 @@
+# Metal Surface Defect Diagnostics - SME defect playbook (source of truth for LLM grounding)
+#
+# One entry per NEU defect class. The app retrieves the entry for the predicted class and the LLM
+# may only rephrase and contextualise this content. Any change here must:
+#   1. bump playbook_version (SemVer), 2. be reviewed by an integrity engineer in a PR,
+#   3. be logged in CHANGELOG.md, 4. be reloaded with the 03_playbook job task.
+#
+# Required fields per entry are validated by src/pipeline/03_playbook.
+# base_severity: one of Low | Medium | High (Critical is only derived at inference time).
+
+playbook_version: "1.0.0"
+status: draft
+approved_by: pending SME review
+last_reviewed: "2026-11-16"
+disclaimer: >-
+  POC content derived from general corrosion and non-destructive testing practice. NEU images are
+  hot-rolled steel strip defects; the pipeline interpretation is illustrative. Must be reviewed and
+  signed off by qualified integrity engineers before operational use.
+
+entries:
+  - playbook_id: PB-NEU-CRZ
+    defect_class: crazing
+    display_name: Crazing
+    category: Surface cracking network / stress-related
+    base_severity: High
+    description: >-
+      A network of fine, shallow, interconnected surface cracks. In a pipeline context it is treated
+      as a possible indicator of surface stress, thermal fatigue or embrittlement of the surface layer.
+    visual_indicators:
+      - Fine branching or mesh-like dark lines across the surface
+      - Cracks with no single dominant direction
+    typical_root_causes:
+      - Thermal cycling or rapid cooling of the surface
+      - Residual stresses from manufacturing or welding
+      - Environmentally assisted cracking in aggressive service conditions
+    risk_assessment: >-
+      Potentially structural. Surface cracks can act as initiation sites for deeper fatigue or
+      stress corrosion cracks, reducing the pressure-containing capacity of the wall if they grow.
+    progression_if_untreated: >-
+      Crack growth under cyclic pressure or thermal loads; possible coalescence into a through-wall
+      defect and leak.
+    recommended_inspection:
+      - Close visual inspection of the affected area and its surroundings to define extent
+      - Magnetic particle (MT) or dye penetrant (PT) testing to confirm surface-breaking cracks
+      - Ultrasonic testing (UT) to estimate crack depth and remaining wall thickness
+    recommended_repair:
+      - Do not return to full service until crack depth is known
+      - Remove shallow cracks by controlled grinding and re-inspect with MT or PT
+      - If depth exceeds acceptance limits, plan a qualified repair (sleeve or section replacement)
+    monitoring: >-
+      Re-inspect repaired or accepted areas at a shortened interval and review operating conditions
+      (pressure and thermal cycling) that may drive crack growth.
+    escalation_criteria:
+      - Crack depth cannot be measured or exceeds acceptance limits
+      - Cracking is found on or near a weld or in a high-stress location
+      - Multiple crazed areas on the same asset
+
+  - playbook_id: PB-NEU-INC
+    defect_class: inclusion
+    display_name: Inclusion
+    category: Material / manufacturing imperfection
+    base_severity: Medium
+    description: >-
+      Non-metallic particles (for example oxides or slag) embedded in or near the surface of the steel
+      during manufacturing, visible as isolated spots or short streaks.
+    visual_indicators:
+      - Isolated dark or light spots, or short elongated streaks in the rolling direction
+      - Local discontinuity in surface texture
+    typical_root_causes:
+      - Entrapped slag or oxides during steelmaking or rolling
+      - Inadequate cleanliness of the steel
+    risk_assessment: >-
+      Usually non-structural when small and isolated, but inclusions can be preferential sites for
+      localized corrosion and crack initiation, especially in sour or aggressive service.
+    progression_if_untreated: >-
+      Possible local pitting or crack initiation at the inclusion under corrosive conditions.
+    recommended_inspection:
+      - Visual inspection to record size, density and location
+      - Ultrasonic testing (UT) if inclusions are dense or elongated, to check for subsurface laminations
+    recommended_repair:
+      - Isolated small inclusions - record and accept, no immediate repair
+      - Dense or elongated inclusions - evaluate with UT and remove locally by grinding if required
+      - Ensure coating integrity over the area to limit corrosion initiation
+    monitoring: >-
+      Include the location in the next scheduled inspection and compare with the recorded baseline.
+    escalation_criteria:
+      - UT indicates subsurface lamination or wall loss
+      - Inclusions coincide with cracking or pitting
+
+  - playbook_id: PB-NEU-PAT
+    defect_class: patches
+    display_name: Patches
+    category: Corrosion / oxidation area
+    base_severity: Medium
+    description: >-
+      Irregular areas with a different surface tone or texture. In a pipeline context it is treated as
+      a zone of surface oxidation or general corrosion, or local loss of the protective surface layer.
+    visual_indicators:
+      - Irregular blotches or areas with darker or lighter tone than the surrounding surface
+      - Diffuse boundaries, sometimes with a rougher texture
+    typical_root_causes:
+      - Local coating damage or breakdown exposing the steel
+      - Moisture retention or condensation on the surface
+      - Oxidation during processing or storage
+    risk_assessment: >-
+      Moderate. General corrosion areas reduce wall thickness gradually and can hide early pitting.
+    progression_if_untreated: >-
+      Spreading general corrosion with gradual wall thinning, possibly developing into pitting.
+    recommended_inspection:
+      - Visual inspection and mapping of the affected area
+      - Ultrasonic thickness measurements (UT) over a grid to quantify wall loss
+      - Check coating condition around the patch
+    recommended_repair:
+      - Clean the area (abrasive or mechanical) to bare metal to reveal the true extent
+      - If wall loss is within limits, re-coat the area
+      - If wall loss exceeds limits, plan a qualified repair
+    monitoring: >-
+      Repeat thickness measurements at the next inspection to establish a corrosion rate.
+    escalation_criteria:
+      - Measured wall loss exceeds acceptance limits
+      - Pitting is found within the patch
+      - Corrosion rate is higher than expected
+
+  - playbook_id: PB-NEU-PIT
+    defect_class: pitted_surface
+    display_name: Pitted surface
+    category: Pitting corrosion
+    base_severity: High
+    description: >-
+      Small, localized cavities or depressions on the surface. In a pipeline context it is treated as
+      pitting corrosion, a localized attack that can penetrate the wall faster than general corrosion.
+    visual_indicators:
+      - Clusters of small dark spots or cavities
+      - Rough, crater-like surface texture
+    typical_root_causes:
+      - Local breakdown of the protective layer or coating
+      - Chlorides, oxygen or deposits creating local corrosion cells
+      - Microbiologically influenced corrosion in stagnant conditions
+    risk_assessment: >-
+      Potentially structural. Pits concentrate wall loss in small areas and can lead to leaks with
+      little overall metal loss.
+    progression_if_untreated: >-
+      Pit deepening and growth into through-wall leaks; pits can also initiate cracks.
+    recommended_inspection:
+      - Visual inspection and pit density mapping
+      - Pit depth measurement (pit gauge) and ultrasonic testing (UT) for remaining wall thickness
+      - Review fluid chemistry and flow conditions for corrosive species or stagnation
+    recommended_repair:
+      - Clean the area to bare metal to reveal all pits
+      - Shallow, isolated pits within limits - re-coat and monitor
+      - Deep or dense pitting - plan a qualified repair (sleeve or section replacement)
+      - Review corrosion protection (coating, inhibitors, cathodic protection where applicable)
+    monitoring: >-
+      Shortened inspection interval on the affected segment and trending of maximum pit depth.
+    escalation_criteria:
+      - Maximum pit depth exceeds acceptance limits
+      - Pitting is active or growing between inspections
+      - Pitting is found at welds or under deposits
+
+  - playbook_id: PB-NEU-RIS
+    defect_class: rolled-in_scale
+    display_name: Rolled-in scale
+    category: Mill scale / surface contamination
+    base_severity: Low
+    description: >-
+      Mill scale (iron oxide) pressed into the surface during hot rolling, visible as embedded flakes
+      or patches. Mostly a surface quality issue.
+    visual_indicators:
+      - Dark, flaky or speckled areas embedded in the surface
+      - Pattern often aligned with the rolling direction
+    typical_root_causes:
+      - Incomplete descaling before or during hot rolling
+    risk_assessment: >-
+      Low, usually cosmetic. Scale can however prevent good coating adhesion and create local
+      corrosion cells if the coating fails.
+    progression_if_untreated: >-
+      Coating disbondment and under-film corrosion over time.
+    recommended_inspection:
+      - Visual inspection to confirm the defect is limited to the surface
+      - Coating adhesion check where the surface is coated
+    recommended_repair:
+      - Remove scale by abrasive cleaning before coating
+      - Re-coat the area following the coating specification
+    monitoring: >-
+      Normal inspection interval; check the area for coating breakdown at the next inspection.
+    escalation_criteria:
+      - Corrosion or pitting found under the scale after cleaning
+      - Coating disbondment over a large area
+
+  - playbook_id: PB-NEU-SCR
+    defect_class: scratches
+    display_name: Scratches
+    category: Mechanical surface damage
+    base_severity: Low
+    description: >-
+      Linear marks caused by mechanical contact during handling, transport or installation.
+    visual_indicators:
+      - Straight or slightly curved lines, usually parallel
+      - Bright or dark lines with sharp edges
+    typical_root_causes:
+      - Handling, transport or installation damage
+      - Contact with tools, supports or debris
+    risk_assessment: >-
+      Low when shallow. Deep scratches or gouges remove wall material and coating, and can act as
+      stress concentrators and corrosion initiation sites.
+    progression_if_untreated: >-
+      Local corrosion where the coating was removed; deep gouges can initiate fatigue cracks.
+    recommended_inspection:
+      - Visual inspection to measure length and estimate depth
+      - Depth gauge or ultrasonic testing (UT) for deep scratches or gouges
+      - Magnetic particle (MT) or dye penetrant (PT) testing if cracking is suspected at the root
+    recommended_repair:
+      - Shallow scratches - repair the coating
+      - Deeper scratches within limits - smooth by light grinding, verify with MT or PT, then re-coat
+      - Gouges beyond limits - plan a qualified repair
+    monitoring: >-
+      Normal inspection interval after coating repair; review handling procedures if recurrent.
+    escalation_criteria:
+      - Depth exceeds acceptance limits or is combined with a dent
+      - Cracking is detected at the bottom of the scratch
