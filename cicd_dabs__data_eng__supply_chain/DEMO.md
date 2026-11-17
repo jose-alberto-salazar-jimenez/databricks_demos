@@ -6,8 +6,8 @@ workspace with GitHub Actions.
 
 | Environment | Workspace | Catalog | Deployed by |
 | --- | --- | --- | --- |
-| dev | https://dbc-3fb58c7d-ac94.cloud.databricks.com | `dev_demo` | you (Cursor) and `jasj-demo-sp-cicd-dev` (CI) |
-| prod | https://dbc-df52510d-0fb6.cloud.databricks.com | `prod_demo` | `jasj-demo-sp-cicd-prd` (CD, after approval) |
+| dev | https://dbc-8d2233b2-55c7.cloud.databricks.com | `dev_demo` | you (Cursor) and `jasj-demo-sp-cicd-dev` (CI) |
+| prod | https://dbc-32f92230-2bf0.cloud.databricks.com | `prod_demo` | `jasj-demo-sp-cicd-prd` (CD, after approval) |
 
 ---
 
