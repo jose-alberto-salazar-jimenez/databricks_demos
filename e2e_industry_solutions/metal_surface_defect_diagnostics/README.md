@@ -13,7 +13,7 @@ A field engineer uploads a photo of a metal surface to a Streamlit Databricks Ap
 Pre-written playbooks give the LLM a reviewed baseline, so it rephrases instead of inventing
 recommendations.
 
-> Status: v1.0.0 scope approved; Phase 1 (foundation) in progress. See `PLAN.md`.
+> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0. See `PLAN.md`.
 
 ## Architecture at a glance
 
@@ -96,11 +96,16 @@ Run from this folder (the bundle root).
    with prod. The Kaggle archive contains `NEU-DET/{train,validation}/images/<class>/*.jpg`
    (1,800 images, 300 per class) plus Pascal VOC XML annotations, which this POC does not use.
 
-3. Run the build job (available from Phase 2):
+3. Deploy again (to pick up the job) and run the build job:
 
    ```
+   databricks bundle deploy --target dev
    databricks bundle run msd_training --target dev
    ```
+
+   Phase 2 tasks: `ingest` (extract zip, Auto Loader into `image_bronze`, split into
+   `image_index`: 240 train / 30 val / 30 test per class) and `playbook` (validate the YAML and
+   load `defect_playbook`). Training, evaluation and the serving endpoint are added in Phase 3.
 
 4. Start the app (available from Phase 4):
 

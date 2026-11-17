@@ -1,0 +1,31 @@
+# Build plane job: ingest -> (train -> evaluate -> deploy endpoint, Phase 3) and playbook load.
+# Tasks run on serverless compute (no cluster definition). Parameters come from bundle variables;
+# the schema is taken from the schema resource so dev (prefixed) and prod resolve correctly.
+resources:
+  jobs:
+    msd_training:
+      name: msd_training
+      description: >-
+        Metal Surface Defect Diagnostics build plane: extract the NEU zip, Auto Loader into
+        image_bronze, build image_index, and load the SME defect playbook index.
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${resources.schemas.msd.name}
+        - name: raw_volume
+          default: ${var.raw_volume}
+        - name: playbook_path
+          default: ${workspace.file_path}/src/playbook/defect_playbook.yaml
+      tasks:
+        - task_key: ingest
+          notebook_task:
+            notebook_path: ../src/pipeline/01_ingest.ipynb
+
+        - task_key: playbook
+          notebook_task:
+            notebook_path: ../src/pipeline/03_playbook.ipynb
+
+      tags:
+        project: metal_surface_defect_diagnostics

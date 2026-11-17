@@ -74,18 +74,25 @@ flowchart LR
   P --> D
 ```
 
-One job (`msd_training`) runs the whole build. Tasks are parameterised from bundle variables
+Phase 2 ships the `ingest` and `playbook` tasks; Phase 3 adds `train`, `evaluate` and
+`deploy_endpoint`. One job (`msd_training`, `resources/msd_training.job.yml`) runs the whole build. Tasks are parameterised from bundle variables
 (catalog, schema, volume, model name, endpoint name), so the same code runs in `dev` and `prod`.
 
 ### 4.2 Ingestion
 
-1. The user uploads the Kaggle zip to `/Volumes/<catalog>/<schema>/raw/zip/`.
-2. `01_ingest` extracts it to `/Volumes/<catalog>/<schema>/raw/images/<class>/<file>.jpg`,
-   normalising the different folder layouts of the Kaggle archive to the six class names.
-3. Auto Loader (`cloudFiles.format = binaryFile`, `availableNow` trigger, checkpoint in the
-   volume) appends new images to `image_bronze`; the label is parsed from the parent folder.
-   Re-runs only pick up new files.
-4. A deterministic stratified split (70/15/15 by hash of the path) is written to `image_index`.
+1. The user uploads the Kaggle zip, unchanged, to `/Volumes/<catalog>/<schema>/raw/` (root or
+   `zip/`). Every `*.zip` found there is processed.
+2. `01_ingest` extracts the images (not the XML annotations) from
+   `NEU-DET/<split>/images/<class>/` to
+   `/Volumes/<catalog>/<schema>/raw/images/<source_split>/<class>/<file>.jpg`. Files already
+   present with the same size are skipped.
+3. Auto Loader (`cloudFiles.format = binaryFile`, `availableNow` trigger, checkpoint in
+   `raw/_checkpoints/image_bronze`) appends new images to `image_bronze`; `label` is the parent
+   folder and `source_split` the grandparent folder. Re-runs only pick up new files.
+4. `image_index` is rebuilt each run with a deterministic split that keeps the dataset's
+   published split: Kaggle `train` (240 per class) -> `train`; Kaggle `validation` (60 per class)
+   -> 30 `val` + 30 `test` per class, ordered by `xxhash64(file_name)`.
+5. Checks fail the task on unexpected classes, duplicate paths or an empty split.
 
 ### 4.3 Training and registration
 
@@ -102,9 +109,10 @@ One job (`msd_training`) runs the whole build. Tasks are parameterised from bund
 
 ### 4.4 Playbook index
 
-`src/playbook/defect_playbook.yaml` is the source of truth. `03_playbook` validates that every
-class has all required fields and writes `defect_playbook` with `playbook_version` and
-`approved_by`. Content changes go through a pull request and a CHANGELOG entry.
+`src/playbook/defect_playbook.yaml` is the source of truth (v1.0.0, status `draft`, pending SME
+review). `03_playbook` validates it (exactly the six NEU classes, unique `playbook_id`, required
+text and list fields non-empty, `base_severity` in Low/Medium/High) and overwrites
+`defect_playbook`; validation errors fail the task so an invalid playbook never reaches the app. Content changes go through a pull request and a CHANGELOG entry.
 
 ## 5. Serve plane
 
@@ -177,27 +185,40 @@ erDiagram
     timestamp modificationTime
     long length
     binary content
+    string file_name
     string label
+    string source_split
+    timestamp ingested_at
   }
   image_index {
     string path
+    string file_name
     string label
+    string source_split
     string split
+    long length
   }
   defect_playbook {
     string playbook_id
     string defect_class
+    string display_name
     string category
     string base_severity
     string description
-    string root_causes
-    string risk
-    string inspection
-    string repair
+    array visual_indicators
+    array typical_root_causes
+    string risk_assessment
+    string progression_if_untreated
+    array recommended_inspection
+    array recommended_repair
     string monitoring
-    string escalation
+    array escalation_criteria
     string playbook_version
+    string playbook_status
     string approved_by
+    string last_reviewed
+    string disclaimer
+    timestamp loaded_at
   }
   model_eval_metrics {
     string model_version
