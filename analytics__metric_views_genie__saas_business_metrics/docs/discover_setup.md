@@ -88,7 +88,7 @@ Query the `net_revenue_retention` measure in `saas_demo.gold.saas_revenue_metric
 ### Logo churn - subdomain CustomerHealth
 * **Description:** Share of customers at the start of a month who cancelled during that month.
 * **Synonyms:** customer churn, customer attrition
-* **Linked assets:** `saas_demo.gold.saas_revenue_metrics` (intended: also `saas_demo.gold.saas_customer_metrics` - the second link did not persist in the live Page; add it in the UI)
+* **Linked assets:** `saas_demo.gold.saas_revenue_metrics`, `saas_demo.gold.saas_customer_metrics` (both listed under Related assets in the UI)
 * **Related Pages:** none (related-Page links only work within the same subdomain, so it cannot link to Revenue churn)
 
 ```markdown
@@ -106,6 +106,6 @@ ARPA, Active customer, Cohort retention (CustomerHealth); MRR growth MoM / YoY a
 ## Checklist before publishing
 
 - [ ] Domain and both subdomains: subtitle and description reviewed
-- [ ] 5 Pages reviewed; add `saas_customer_metrics` link to Logo churn
+- [ ] 5 Pages reviewed (check Related assets in the UI; an API read-back may list only one linked asset per Page)
 - [ ] Domain sections feature both metric views and both Genie Agents
 - [ ] Publish domain, subdomains, then Pages
