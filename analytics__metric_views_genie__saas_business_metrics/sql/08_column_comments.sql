@@ -1,0 +1,66 @@
+-- Business comments for silver tables and gold materialized views (applied in the live demo).
+-- Metric views carry their comments and display names in their YAML (sql/04).
+-- MV column comments must be set with ALTER MATERIALIZED VIEW ... ALTER COLUMN (a column list in CREATE is ignored).
+-- Re-run after any CREATE OR REPLACE of these objects.
+
+COMMENT ON TABLE saas_demo.silver.customers IS 'One row per synthetic customer account (fake names, no personal data). Key: customer_id. About 3/8 signed up before the 24-month window (opening book). Joins to subscriptions, mrr_events and gold tables on customer_id.';
+ALTER TABLE saas_demo.silver.customers ALTER COLUMN customer_id COMMENT 'Unique customer key (CUST-nnnnn). Main join key across silver and gold.';
+ALTER TABLE saas_demo.silver.customers ALTER COLUMN company_name COMMENT 'Fictional company name, display only. Not a join key.';
+ALTER TABLE saas_demo.silver.customers ALTER COLUMN segment COMMENT 'Customer size: SMB, Mid-Market or Enterprise. Fixed for the customer lifetime.';
+ALTER TABLE saas_demo.silver.customers ALTER COLUMN region COMMENT 'Sales region: NA, EMEA, APAC or LATAM.';
+ALTER TABLE saas_demo.silver.customers ALTER COLUMN signup_date COMMENT 'Date the customer first subscribed. Equals subscriptions.start_date and the date of the new MRR event. Can be before the window.';
+COMMENT ON TABLE saas_demo.silver.plans IS 'Price plan list, one row per tier and billing period. Joins to subscriptions on plan_id.';
+ALTER TABLE saas_demo.silver.plans ALTER COLUMN plan_id COMMENT 'Unique plan key, e.g. PLN-PRO-M. Joins to subscriptions.plan_id.';
+ALTER TABLE saas_demo.silver.plans ALTER COLUMN plan_name COMMENT 'Plan tier: Starter, Pro or Enterprise.';
+ALTER TABLE saas_demo.silver.plans ALTER COLUMN billing_period COMMENT 'Invoicing frequency: monthly or annual. MRR is always stated per month.';
+COMMENT ON TABLE saas_demo.silver.subscriptions IS 'One subscription per customer, from start to cancellation. Joins to customers on customer_id and plans on plan_id.';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN subscription_id COMMENT 'Unique subscription key (SUB-nnnnn).';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN customer_id COMMENT 'Customer that owns the subscription. Joins to customers.';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN plan_id COMMENT 'Plan purchased. Joins to plans. Does not change during the subscription.';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN start_date COMMENT 'Date the subscription began (the signup date).';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN end_date COMMENT 'Date the customer cancelled. NULL means still active.';
+ALTER TABLE saas_demo.silver.subscriptions ALTER COLUMN status COMMENT 'active or churned. Churned exactly when end_date is filled in.';
+COMMENT ON TABLE saas_demo.silver.mrr_events IS 'One row per change in a customer MRR (USD per month). Joins to customers on customer_id. Sum of (mrr_after - mrr_before) per customer = current MRR. New events before the window are the opening book.';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN event_id COMMENT 'Unique event key, numbered in date order.';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN customer_id COMMENT 'Customer whose MRR changed. Joins to customers.';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN event_date COMMENT 'Date the change took effect.';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN event_type COMMENT 'new = first MRR, expansion = increase, contraction = decrease while staying, churn = cancellation (MRR to 0).';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN mrr_before COMMENT 'MRR just before the event (USD per month). 0 for new.';
+ALTER TABLE saas_demo.silver.mrr_events ALTER COLUMN mrr_after COMMENT 'MRR just after the event (USD per month). 0 for churn.';
+COMMENT ON TABLE saas_demo.silver.mrr_report_v1 IS 'DEPRECATED legacy monthly report by segment. Its churn column counts lost customers only and ignores lost revenue. Use gold.saas_revenue_metrics (logo_churn_rate, gross_revenue_churn_rate, net_revenue_retention) instead.';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN month COMMENT 'First day of the calendar month.';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN segment COMMENT 'Customer size segment.';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN opening_mrr COMMENT 'Total MRR at the start of the month (USD).';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN closing_mrr COMMENT 'Total MRR at the end of the month (USD).';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN opening_customers COMMENT 'Customers paying at the start of the month.';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN churned_customers COMMENT 'Customers who cancelled during the month.';
+ALTER TABLE saas_demo.silver.mrr_report_v1 ALTER COLUMN churn COMMENT 'Logo churn only: churned_customers / opening_customers (0-1). Says nothing about lost revenue. NULL when there were no opening customers.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN month COMMENT 'First day of the calendar month. Together with customer_id forms the unique key.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN customer_id COMMENT 'Customer key. Joins to customer_snapshot and the silver tables.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN segment COMMENT 'Customer size segment (SMB, Mid-Market, Enterprise), from customers.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN region COMMENT 'Sales region (NA, EMEA, APAC, LATAM), from customers.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN plan COMMENT 'Plan tier of the customer subscription (Starter, Pro, Enterprise).';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN opening_mrr COMMENT 'MRR at the start of the month in USD (equals previous closing). For opening-book customers the first window month opens with their existing MRR.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN new_mrr COMMENT 'MRR from a first subscription signed inside the window. Only in the signup month, otherwise 0.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN expansion_mrr COMMENT 'MRR increases during the month in USD, otherwise 0.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN contraction_mrr COMMENT 'MRR decreases while the customer stays, positive number in USD.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN churned_mrr COMMENT 'MRR lost when the customer cancelled, positive number in USD. Only in the churn month.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN closing_mrr COMMENT 'MRR at the end of the month in USD. 0 in the churn month. Point-in-time: never sum across months.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN opening_customers COMMENT '1 if the customer had MRR at the start of the month, else 0. Sum = customers at month start.';
+ALTER MATERIALIZED VIEW saas_demo.gold.mrr_monthly ALTER COLUMN churned_customers COMMENT '1 if the customer cancelled in this month, else 0.';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN customer_id COMMENT 'Unique customer key. Joins to mrr_monthly and the silver tables.';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN company_name COMMENT 'Fictional company name, display only.';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN segment COMMENT 'Customer size segment (SMB, Mid-Market, Enterprise).';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN region COMMENT 'Sales region (NA, EMEA, APAC, LATAM).';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN plan COMMENT 'Plan tier (Starter, Pro, Enterprise).';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN signup_date COMMENT 'Date the customer first subscribed. Can be before the 24-month window (opening book).';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN current_mrr COMMENT 'MRR at the snapshot date in USD per month. 0 for churned customers.';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN tenure_months COMMENT 'Whole months from signup to the snapshot date (active) or to cancellation (churned).';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN status COMMENT 'active or churned, as of the snapshot date.';
+ALTER MATERIALIZED VIEW saas_demo.gold.customer_snapshot ALTER COLUMN churn_month COMMENT 'First day of the month the customer cancelled. NULL means still active.';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN signup_month COMMENT 'Cohort: the month the customers signed up. Only cohorts inside the 24-month window.';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN months_since_signup COMMENT 'Months after signup. 0 = the signup month.';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN customers_start COMMENT 'Cohort size. The same on every row of the cohort.';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN customers_active COMMENT 'Cohort customers still paying at the end of that month.';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN mrr_start COMMENT 'Cohort MRR at the end of its signup month (USD).';
+ALTER MATERIALIZED VIEW saas_demo.gold.cohort_retention ALTER COLUMN mrr_now COMMENT 'Cohort MRR at the end of that month (USD). Can exceed mrr_start because of expansion.';

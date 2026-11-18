@@ -1,0 +1,507 @@
+{
+  "title": "Revenue and Retention",
+  "description": "For finance and RevOps teams: ask about MRR, ARR, net new MRR, logo and revenue churn and net revenue retention by month, segment, region and plan. Built on the certified metric view saas_demo.gold.saas_revenue_metrics (synthetic SaaS demo data, USD).",
+  "serialized_space": {
+    "version": 2,
+    "config": {
+      "sample_questions": [
+        {
+          "id": "a1000000000000000000000000000001",
+          "question": [
+            "What is our MRR and ARR by segment this month?"
+          ]
+        },
+        {
+          "id": "a1000000000000000000000000000002",
+          "question": [
+            "How did net new MRR break down each month over the last year?"
+          ]
+        },
+        {
+          "id": "a1000000000000000000000000000003",
+          "question": [
+            "What is net revenue retention by segment?"
+          ]
+        }
+      ]
+    },
+    "data_sources": {
+      "tables": [
+        {
+          "identifier": "saas_demo.gold.mrr_monthly",
+          "description": [
+            "Customer x month MRR waterfall (USD). Use only for customer-level detail; use the metric view for KPIs."
+          ],
+          "column_configs": [
+            {
+              "column_name": "churned_mrr",
+              "synonyms": [
+                "lost MRR",
+                "churned revenue"
+              ]
+            },
+            {
+              "column_name": "closing_mrr",
+              "synonyms": [
+                "MRR",
+                "recurring revenue",
+                "month-end MRR"
+              ]
+            },
+            {
+              "column_name": "customer_id",
+              "synonyms": [
+                "account id",
+                "customer"
+              ]
+            },
+            {
+              "column_name": "month",
+              "enable_format_assistance": true
+            },
+            {
+              "column_name": "plan",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "region",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "segment",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            }
+          ]
+        },
+        {
+          "identifier": "saas_demo.gold.saas_revenue_metrics",
+          "description": [
+            "Certified revenue KPIs. MRR and ARR are point-in-time; flow measures sum over months; rates are monthly."
+          ],
+          "column_configs": [
+            {
+              "column_name": "arr",
+              "synonyms": [
+                "annual recurring revenue",
+                "run rate"
+              ]
+            },
+            {
+              "column_name": "churned_mrr",
+              "synonyms": [
+                "lost MRR",
+                "churned revenue"
+              ]
+            },
+            {
+              "column_name": "gross_revenue_churn_rate",
+              "synonyms": [
+                "revenue churn",
+                "MRR churn",
+                "gross revenue churn",
+                "revenue attrition"
+              ]
+            },
+            {
+              "column_name": "logo_churn_rate",
+              "synonyms": [
+                "logo churn",
+                "customer churn",
+                "customer attrition"
+              ]
+            },
+            {
+              "column_name": "mrr",
+              "synonyms": [
+                "recurring revenue",
+                "monthly recurring revenue"
+              ]
+            },
+            {
+              "column_name": "net_new_mrr",
+              "synonyms": [
+                "net MRR growth",
+                "MRR growth"
+              ]
+            },
+            {
+              "column_name": "net_revenue_retention",
+              "synonyms": [
+                "NRR",
+                "net dollar retention"
+              ]
+            },
+            {
+              "column_name": "opening_mrr_flow",
+              "exclude": true
+            }
+          ]
+        }
+      ]
+    },
+    "instructions": {
+      "text_instructions": [
+        {
+          "id": "a2000000000000000000000000000001",
+          "content": [
+            "* Use saas_demo.gold.saas_revenue_metrics with MEASURE() for every KPI. Use saas_demo.gold.mrr_monthly only for customer-level detail.\n",
+            "* MRR and ARR are point-in-time: never sum them across months. For a period, report the last month.\n",
+            "* When asked about churn without saying logo or revenue, ask which one, or show both.\n",
+            "* Churn and NRR are monthly rates; across several months they are pooled monthly averages. Say so, and do not annualize unless asked.\n",
+            "* 'This month' or 'current' means the last complete month; data ends there.\n",
+            "* For growth, prior-period and trailing-12-month questions use mrr_prev_month, mrr_mom_growth, mrr_prior_year, mrr_yoy_growth, net_new_mrr_t12m, *_t12m rates and net_revenue_retention_annualized. Do not rebuild them with LAG or self-joins.\n",
+            "* Amounts are USD. Data is synthetic."
+          ]
+        }
+      ],
+      "example_question_sqls": [
+        {
+          "id": "a3000000000000000000000000000001",
+          "question": [
+            "What was our MRR and ARR by segment in a given month?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`mrr`) AS mrr, MEASURE(`arr`) AS arr\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` = trunc(:month, 'MM')\n",
+            "GROUP BY ALL\n",
+            "ORDER BY mrr DESC"
+          ],
+          "parameters": [
+            {
+              "name": "month",
+              "type_hint": "DATE",
+              "description": [
+                "Any date in the month to report; it is truncated to the first day of that month"
+              ],
+              "default_value": {
+                "values": [
+                  "2026-10-01"
+                ]
+              }
+            }
+          ],
+          "usage_guidance": [
+            "Use when the user asks for MRR or ARR by segment for a specific month"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000002",
+          "question": [
+            "How did MRR move each month over the last year?"
+          ],
+          "sql": [
+            "SELECT `month`, MEASURE(`mrr`) AS mrr, MEASURE(`new_mrr`) AS new_mrr, MEASURE(`expansion_mrr`) AS expansion_mrr,\n",
+            "  MEASURE(`contraction_mrr`) AS contraction_mrr, MEASURE(`churned_mrr`) AS churned_mrr, MEASURE(`net_new_mrr`) AS net_new_mrr\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `month` ASC"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000003",
+          "question": [
+            "What's our churn this month?"
+          ],
+          "sql": [
+            "SELECT MEASURE(`logo_churn_rate`) AS logo_churn_rate, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn_rate\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` = add_months(trunc(current_date(), 'MM'), -1)\n",
+            "GROUP BY ALL"
+          ],
+          "usage_guidance": [
+            "Churn type not specified: show both logo churn and revenue churn"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000004",
+          "question": [
+            "What is net revenue retention by segment over the last 12 months?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `segment`"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000005",
+          "question": [
+            "Who are our top 10 customers by MRR?"
+          ],
+          "sql": [
+            "SELECT customer_id, segment, region, plan, closing_mrr\n",
+            "FROM saas_demo.gold.mrr_monthly\n",
+            "WHERE month = (SELECT MAX(month) FROM saas_demo.gold.mrr_monthly)\n",
+            "ORDER BY closing_mrr DESC\n",
+            "LIMIT 10"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000006",
+          "question": [
+            "How is MRR growing month over month and year over year?"
+          ],
+          "sql": [
+            "SELECT `month`, MEASURE(`mrr`) AS mrr, MEASURE(`mrr_prev_month`) AS mrr_prev_month, MEASURE(`mrr_mom_growth`) AS mrr_mom_growth,\n",
+            "  MEASURE(`mrr_prior_year`) AS mrr_prior_year, MEASURE(`mrr_yoy_growth`) AS mrr_yoy_growth\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `month` ASC"
+          ],
+          "usage_guidance": [
+            "Use for MoM / YoY growth questions; the window measures handle prior periods"
+          ]
+        }
+      ],
+      "sql_snippets": {
+        "filters": [
+          {
+            "id": "a4000000000000000000000000000001",
+            "sql": [
+              "mrr_monthly.closing_mrr > 0"
+            ],
+            "display_name": "active customer",
+            "instruction": [
+              "Customer still paying at month end"
+            ],
+            "synonyms": [
+              "paying customer",
+              "active account"
+            ]
+          },
+          {
+            "id": "a4000000000000000000000000000002",
+            "sql": [
+              "mrr_monthly.churned_customers = 1"
+            ],
+            "display_name": "churned customer",
+            "instruction": [
+              "Customer cancelled in that month"
+            ],
+            "synonyms": [
+              "cancelled customer",
+              "lost customer"
+            ]
+          },
+          {
+            "id": "a4000000000000000000000000000003",
+            "sql": [
+              "mrr_monthly.segment = 'Enterprise'"
+            ],
+            "display_name": "enterprise segment",
+            "synonyms": [
+              "enterprise customers",
+              "large accounts"
+            ]
+          },
+          {
+            "id": "a4000000000000000000000000000004",
+            "sql": [
+              "mrr_monthly.month = add_months(trunc(current_date(), 'MM'), -1)"
+            ],
+            "display_name": "last complete month",
+            "synonyms": [
+              "this month",
+              "current month",
+              "latest month"
+            ]
+          }
+        ],
+        "expressions": [
+          {
+            "id": "a5000000000000000000000000000001",
+            "alias": "quarter",
+            "sql": [
+              "DATE_TRUNC('QUARTER', mrr_monthly.month)"
+            ],
+            "display_name": "quarter",
+            "synonyms": [
+              "fiscal quarter",
+              "calendar quarter"
+            ]
+          }
+        ]
+      }
+    },
+    "benchmarks": {
+      "questions": [
+        {
+          "id": "a6000000000000000000000000000012",
+          "question": [
+            "What is our annualized net revenue retention by segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000011",
+          "question": [
+            "What is our current MRR growth year over year (latest month vs the same month last year)?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`mrr_yoy_growth`) AS mrr_yoy_growth FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000010",
+          "question": [
+            "Net revenue retention per segment, trailing 12 months"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000009",
+          "question": [
+            "Show me annual recurring revenue split by segment"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY arr DESC"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000008",
+          "question": [
+            "What's our total MRR right now?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000007",
+          "question": [
+            "Which region added the most net new MRR in the last 3 months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `region`, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -3) GROUP BY ALL ORDER BY net_new_mrr DESC LIMIT 1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000006",
+          "question": [
+            "What are logo churn and revenue churn by segment over the last 12 months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000005",
+          "question": [
+            "What is NRR by segment over the last 12 months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000004",
+          "question": [
+            "What is the monthly MRR waterfall over the last 12 months: new, expansion, contraction, churn and net new?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `month`, MEASURE(`new_mrr`) AS new_mrr, MEASURE(`expansion_mrr`) AS expansion_mrr, MEASURE(`contraction_mrr`) AS contraction_mrr, MEASURE(`churned_mrr`) AS churned_mrr, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000003",
+          "question": [
+            "How has MRR trended over the last 12 months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `month`, MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000002",
+          "question": [
+            "What is current ARR by segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY arr DESC"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "a6000000000000000000000000000001",
+          "question": [
+            "What is our current MRR?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
