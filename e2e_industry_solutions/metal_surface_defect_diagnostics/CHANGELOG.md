@@ -14,6 +14,38 @@ How to use:
 
 ## [Unreleased]
 
+Phase 3 - model (branch `feature/msd-phase3-model`).
+
+### Added
+
+* `src/pipeline/02_train.ipynb`: MobileNetV3-Small transfer learning on serverless CPU (CPU
+  PyTorch 2.5.1 / torchvision 0.20.1, AdamW + cosine, 8 epochs, best-val checkpoint), MLflow
+  tracking, pyfunc packaging (base64 image in; `predicted_class`, `confidence`, `probabilities`
+  out) with signature and input example, isolated `uv` serving-readiness check, and UC
+  registration of `msd_defect_classifier`.
+* `src/pipeline/04_evaluate.ipynb`: test-split accuracy, per-class precision/recall/F1 and
+  confusion matrix logged to the version's MLflow run and appended to `model_eval_metrics`;
+  promotion gate sets `@champion` at test accuracy >= `min_test_accuracy` (0.90).
+* `src/pipeline/05_deploy_endpoint.ipynb`: create or update the serving endpoint pinned to the
+  exact `@champion` version (CPU, Small, scale-to-zero), wait for READY, smoke test.
+* `resources/msd.experiment.yml`: per-target MLflow experiment.
+* Job tasks `train` -> `evaluate` -> `deploy_endpoint` and parameters `model_name`,
+  `experiment_path`, `epochs`, `min_test_accuracy`, `serving_endpoint`; job timeout 2 h.
+* Bundle variables `min_test_accuracy` and `train_epochs`.
+
+### Changed
+
+* `dev` target overrides `serving_endpoint` to `msd-defect-classifier-dev` (endpoint names are
+  workspace-global and are not prefixed by development mode).
+
+### Fixed
+
+* Model serving requirements pin `torch==2.5.1` / `torchvision==0.20.1` without the `+cpu` local
+  tag. The `+cpu` builds exist only for x86_64, so the isolated serving-readiness check failed
+  whenever serverless placed the `train` task on an aarch64 machine.
+* Experiment resource key renamed to `msd_classifier` (bundle resource keys must be unique across
+  resource types; `msd` is the schema).
+
 ## [1.2.0] - 2026-11-17
 
 Phase 2 - data and playbook (branch `feature/msd-phase2-data`).

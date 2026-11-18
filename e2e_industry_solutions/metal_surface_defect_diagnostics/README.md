@@ -13,7 +13,7 @@ A field engineer uploads a photo of a metal surface to a Streamlit Databricks Ap
 Pre-written playbooks give the LLM a reviewed baseline, so it rephrases instead of inventing
 recommendations.
 
-> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0. See `PLAN.md`.
+> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0; Phase 3 (model) in progress. See `PLAN.md`.
 
 ## Architecture at a glance
 
@@ -103,9 +103,13 @@ Run from this folder (the bundle root).
    databricks bundle run msd_training --target dev
    ```
 
-   Phase 2 tasks: `ingest` (extract zip, Auto Loader into `image_bronze`, split into
-   `image_index`: 240 train / 30 val / 30 test per class) and `playbook` (validate the YAML and
-   load `defect_playbook`). Training, evaluation and the serving endpoint are added in Phase 3.
+   Tasks: `ingest` (extract zip, Auto Loader into `image_bronze`, split into `image_index`:
+   240 train / 30 val / 30 test per class), `playbook` (validate the YAML and load
+   `defect_playbook`), `train` (CPU transfer learning, about 5 minutes of training plus the
+   isolated serving-readiness check, registers a new model version), `evaluate` (test metrics into
+   `model_eval_metrics`, sets `@champion` at test accuracy >= 90%) and `deploy_endpoint`
+   (creates or updates the serving endpoint for `@champion`; the first creation takes about 15
+   minutes). Endpoint names: `msd-defect-classifier-dev` (dev), `msd-defect-classifier` (prod).
 
 4. Start the app (available from Phase 4):
 
