@@ -13,7 +13,7 @@ A field engineer uploads a photo of a metal surface to a Streamlit Databricks Ap
 Pre-written playbooks give the LLM a reviewed baseline, so it rephrases instead of inventing
 recommendations.
 
-> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0; Phase 3 (model) in progress. See `PLAN.md`.
+> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0; Phase 3 (model) released in 1.3.0. See `PLAN.md`.
 
 ## Architecture at a glance
 

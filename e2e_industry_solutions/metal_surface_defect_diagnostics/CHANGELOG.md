@@ -14,6 +14,8 @@ How to use:
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-18
+
 Phase 3 - model (branch `feature/msd-phase3-model`).
 
 ### Added
