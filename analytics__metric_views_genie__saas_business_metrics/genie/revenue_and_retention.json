@@ -6,21 +6,33 @@
     "config": {
       "sample_questions": [
         {
-          "id": "a1000000000000000000000000000001",
+          "id": "c1000000000000000000000000000001",
+          "question": [
+            "What's our churn?"
+          ]
+        },
+        {
+          "id": "c1000000000000000000000000000002",
+          "question": [
+            "How is MRR growing month over month and year over year?"
+          ]
+        },
+        {
+          "id": "c1000000000000000000000000000003",
+          "question": [
+            "Which segments are shrinking?"
+          ]
+        },
+        {
+          "id": "c1000000000000000000000000000004",
           "question": [
             "What is our MRR and ARR by segment this month?"
           ]
         },
         {
-          "id": "a1000000000000000000000000000002",
+          "id": "c1000000000000000000000000000005",
           "question": [
-            "How did net new MRR break down each month over the last year?"
-          ]
-        },
-        {
-          "id": "a1000000000000000000000000000003",
-          "question": [
-            "What is net revenue retention by segment?"
+            "What is our annualized net revenue retention by segment?"
           ]
         }
       ]
@@ -153,6 +165,7 @@
             "* Churn and NRR are monthly rates; across several months they are pooled monthly averages. Say so, and do not annualize unless asked.\n",
             "* 'This month' or 'current' means the last complete month; data ends there.\n",
             "* For growth, prior-period and trailing-12-month questions use mrr_prev_month, mrr_mom_growth, mrr_prior_year, mrr_yoy_growth, net_new_mrr_t12m, *_t12m rates and net_revenue_retention_annualized. Do not rebuild them with LAG or self-joins.\n",
+            "* When asked which segments are shrinking (or growing) without saying how, show both lenses over the last 3 complete months: net new MRR (total MRR change, including new customers) and NRR (existing customers only). Point out when they disagree.\n",
             "* Amounts are USD. Data is synthetic."
           ]
         }
@@ -258,6 +271,22 @@
           ],
           "usage_guidance": [
             "Use for MoM / YoY growth questions; the window measures handle prior periods"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000007",
+          "question": [
+            "Which segments are shrinking?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`net_new_mrr`) AS net_new_mrr_3m, MEASURE(`net_revenue_retention`) AS nrr_monthly_3m\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -3)\n",
+            "GROUP BY ALL\n",
+            "ORDER BY nrr_monthly_3m ASC"
+          ],
+          "usage_guidance": [
+            "Shrinking is ambiguous: show total MRR change (net new MRR) and existing-customer retention (NRR) side by side"
           ]
         }
       ],

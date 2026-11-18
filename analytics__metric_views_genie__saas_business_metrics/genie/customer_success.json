@@ -6,21 +6,27 @@
     "config": {
       "sample_questions": [
         {
-          "id": "b1000000000000000000000000000001",
+          "id": "c2000000000000000000000000000001",
           "question": [
-            "How many active customers do we have by segment, and what is their ARPA?"
+            "Which Enterprise accounts churned in the last 6 months?"
           ]
         },
         {
-          "id": "b1000000000000000000000000000002",
+          "id": "c2000000000000000000000000000002",
           "question": [
             "What is 6-month retention for each signup cohort?"
           ]
         },
         {
-          "id": "b1000000000000000000000000000003",
+          "id": "c2000000000000000000000000000003",
           "question": [
-            "Which Enterprise accounts churned recently?"
+            "How many active customers do we have by segment, and what is their ARPA?"
+          ]
+        },
+        {
+          "id": "c2000000000000000000000000000004",
+          "question": [
+            "How long do customers stay before they churn, by segment?"
           ]
         }
       ]
