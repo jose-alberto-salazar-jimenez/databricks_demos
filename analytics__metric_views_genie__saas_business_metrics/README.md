@@ -54,6 +54,7 @@ flowchart LR
 | `genie/*.json` | Exact exported configuration of both Genie Agents |
 | `scripts/deploy_governance_and_genie.py` | Creates governed tags, Genie Agents and their tags via REST |
 | `docs/question_bank.md` | 20 validated business questions with SQL (6 deliberately ambiguous) |
+| `docs/discover_setup.md` | Exact Discover domain, subdomain and Page content, with UI steps |
 
 ## Objects
 
@@ -114,6 +115,8 @@ measures `active_customers`, `avg_tenure_months`, `arpa`. Every dimension and me
 * Certified: all 5 gold objects + both Genie Agents. Deprecated: `silver.mrr_report_v1` (with a deprecation comment pointing to the metric view).
 * Discover: domain **Revenue** with subdomains **RecurringRevenue** and **CustomerHealth** - all **draft**.
 * Pages (draft): MRR, ARR, Revenue churn, Net revenue retention (RecurringRevenue); Logo churn (CustomerHealth), linked to the metric views.
+
+Full Discover content (domain, subdomains, all 5 Pages with exact text): see [`docs/discover_setup.md`](docs/discover_setup.md).
 
 Discover setup (UI; the domains API is Beta): Discover > Create domain > existing tag `Revenue` > subtitle/description > Create.
 Open Revenue > Create subdomain > Use an existing tag > `Revenue/RecurringRevenue` (repeat for `Revenue/CustomerHealth`).
