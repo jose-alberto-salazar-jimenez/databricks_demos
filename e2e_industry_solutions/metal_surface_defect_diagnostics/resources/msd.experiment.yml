@@ -1,0 +1,7 @@
+resources:
+  experiments:
+    # Key must be unique across all resource types in the bundle (the schema already uses `msd`).
+    msd_classifier:
+      # One experiment per target; the train task logs runs here and the registered model
+      # versions link back to these runs.
+      name: /Workspace/Users/${workspace.current_user.userName}/msd_defect_classifier_${bundle.target}

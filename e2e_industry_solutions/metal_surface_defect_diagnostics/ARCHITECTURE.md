@@ -52,11 +52,12 @@ tables; people/input is the field engineer. Solid arrows are calls, dotted arrow
 | Raw volume | UC managed volume | `resources/msd.volume.yml` | Holds the uploaded NEU zip (`zip/`) and extracted images (`images/<class>/`) |
 | Schema | UC schema | `resources/msd.schema.yml` | Container for all tables, the volume and the registered model |
 | Ingest | Lakeflow Job task, serverless | `src/pipeline/01_ingest.ipynb` | Extract zip, Auto Loader `binaryFile` into `image_bronze`, label from folder name, stratified split into `image_index` |
-| Train | Lakeflow Job task, serverless CPU | `src/pipeline/02_train.ipynb` | Transfer learning (MobileNetV3-Small), MLflow tracking, register to UC with `champion` alias |
+| Train | Lakeflow Job task, serverless CPU | `src/pipeline/02_train.ipynb` | Transfer learning (MobileNetV3-Small), MLflow tracking, pyfunc packaging, isolated serving-readiness check, register a new UC model version |
+| Experiment | MLflow experiment | `resources/msd.experiment.yml` | One experiment per target; training runs and evaluation artifacts |
 | Playbook load | Lakeflow Job task | `src/pipeline/03_playbook.ipynb`, `src/playbook/defect_playbook.yaml` | Validate the YAML and overwrite the `defect_playbook` Delta table |
-| Evaluate | Lakeflow Job task | `src/pipeline/04_evaluate.ipynb` | Test-set accuracy, per-class metrics, confusion matrix; write `model_eval_metrics` |
-| Deploy endpoint | Lakeflow Job task | `src/pipeline/05_deploy_endpoint.ipynb` | Create or update the serving endpoint to the `champion` version |
-| Classifier endpoint | Model Serving (CPU, small, scale-to-zero) | created by task 05 | REST inference: image (base64) in, class probabilities out |
+| Evaluate | Lakeflow Job task | `src/pipeline/04_evaluate.ipynb` | Test-set accuracy, per-class metrics, confusion matrix; append `model_eval_metrics`; promotion gate sets the `champion` alias |
+| Deploy endpoint | Lakeflow Job task | `src/pipeline/05_deploy_endpoint.ipynb` | Create or update the serving endpoint pinned to the exact `champion` version; wait for READY; smoke test |
+| Classifier endpoint | Model Serving (CPU, Small, scale-to-zero) | created by task 05 | REST inference: base64 image in; `predicted_class`, `confidence`, `probabilities` out. `msd-defect-classifier` (prod), `msd-defect-classifier-dev` (dev) |
 | Web app | Databricks Apps (Streamlit) | `resources/msd_app.app.yml`, `src/app/` | Upload, result page, severity, human-review routing, report and playbook tabs |
 | Playbook index | Delta table via SQL warehouse | `defect_playbook` | Retrieval of the SME entry for the predicted class |
 | LLM | Foundation Model API (pay-per-token) | `databricks-meta-llama-3-3-70b-instruct` | Rephrase the retrieved playbook entry into the diagnostic report |
@@ -74,9 +75,16 @@ flowchart LR
   P --> D
 ```
 
-Phase 2 ships the `ingest` and `playbook` tasks; Phase 3 adds `train`, `evaluate` and
-`deploy_endpoint`. One job (`msd_training`, `resources/msd_training.job.yml`) runs the whole build. Tasks are parameterised from bundle variables
-(catalog, schema, volume, model name, endpoint name), so the same code runs in `dev` and `prod`.
+One job (`msd_training`, `resources/msd_training.job.yml`) runs the whole build on serverless
+compute, with a 2-hour job timeout and one concurrent run. Tasks are parameterised from bundle
+variables (catalog, schema, volume, model name, experiment, epochs, promotion gate, endpoint
+name), so the same code runs in `dev` and `prod`. `train` passes the exact registered version to
+`evaluate` through a task value.
+
+Typical end-to-end run in dev: about 21 minutes. `ingest` takes about 2 minutes (no new files),
+`playbook` 1, `train` 7 (about 4 of them training), `evaluate` 1, and `deploy_endpoint` about 11
+when a new version is promoted (Model Serving builds and rolls out the model container). When
+the endpoint already serves the `champion` version, the deploy task finishes in seconds.
 
 ### 4.2 Ingestion
 
@@ -97,17 +105,54 @@ Phase 2 ships the `ingest` and `playbook` tasks; Phase 3 adds `train`, `evaluate
 ### 4.3 Training and registration
 
 * Backbone: torchvision MobileNetV3-Small pretrained on ImageNet; classifier head replaced with 6
-  outputs; grayscale images replicated to 3 channels, resized to 224, light augmentation (flips,
-  small rotations).
-* CPU-friendly: few epochs, small batch, early stopping on validation accuracy. Switching to
-  serverless GPU only changes the task compute.
-* MLflow logs parameters, per-epoch metrics, the confusion matrix and the model as a pyfunc
-  wrapper that accepts base64 images and returns per-class probabilities, with an explicit
-  signature and input example.
-* The model is registered as `<catalog>.<schema>.msd_defect_classifier`; the new version gets the
-  `champion` alias only if it meets the evaluation gate (test accuracy >= 90%).
+  outputs; grayscale images replicated to 3 channels, resized to 224x224, ImageNet normalisation,
+  augmentation with horizontal and vertical flips.
+* Optimisation: AdamW (lr 3e-4, weight decay 1e-4), cosine learning-rate schedule, 8 epochs
+  (`train_epochs`), batch 32, seed 42. The checkpoint with the best validation accuracy is kept.
+  On serverless CPU an epoch takes about 30 seconds with PyTorch's default thread count. Switching
+  to serverless GPU only changes the task compute.
+* Dependencies: CPU PyTorch 2.5.1 / torchvision 0.20.1 from the PyTorch CPU index, installed
+  with `%pip` in the task. The model's serving requirements pin `torch==2.5.1` and
+  `torchvision==0.20.1` without a `+cpu` tag, because that build exists only for x86_64 while
+  serverless can schedule the task on aarch64.
+* Packaging: MLflow pyfunc wrapper (weights and class list as artifacts). Input: DataFrame column
+  `image` with base64-encoded image bytes. Output: `predicted_class`, `confidence` (top-1
+  probability) and `probabilities` (JSON string class -> probability). Signature and input
+  example are logged.
+* Serving-readiness gate: before registration, the logged artifact is loaded and scored with
+  `mlflow.models.predict(..., env_manager="uv")`, which installs the declared requirements from
+  scratch in an isolated environment, as Model Serving will.
+* Registration: a new version of `<catalog>.<schema>.msd_defect_classifier` in Unity Catalog. The
+  `champion` alias is set later by `04_evaluate`.
 
-### 4.4 Playbook index
+### 4.4 Evaluation and promotion
+
+* `04_evaluate` loads the exact version from Unity Catalog and scores the held-out `test` split
+  (30 images per class) through the same pyfunc interface the endpoint uses.
+* It computes accuracy, macro F1, per-class precision/recall/F1/support and the confusion matrix.
+  Metrics and CSV artifacts (`evaluation/confusion_matrix.csv`,
+  `evaluation/per_class_metrics.csv`) are logged to the version's MLflow run, and one row per
+  class is appended to `model_eval_metrics`.
+* Gate: the version gets the `champion` alias (and a `test_accuracy` version tag) only if test
+  accuracy >= `min_test_accuracy` (default 0.90). Otherwise the previous champion stays.
+* Current dev result: 98.33% test accuracy (177/180), macro F1 0.984. The three errors are two
+  `inclusion` images and one `patches` image predicted as `pitted_surface`; two test images
+  score below the 0.70 confidence threshold and would be routed to human review.
+
+### 4.5 Endpoint deployment
+
+* `05_deploy_endpoint` resolves `champion` to an exact version and never serves "latest".
+* It checks that the workspace supports `CPU` / `Small`, creates the endpoint if absent, or
+  updates it when the served version differs. It refuses to modify an endpoint that serves a
+  different model.
+* Settings: `CPU` workload (4 GB per concurrency), `Small` size (4 concurrent requests),
+  scale-to-zero enabled (the first request after idle has a cold start). No route optimisation.
+* It waits for `READY` (fails on `UPDATE_FAILED` / `UPDATE_CANCELED`, times out after 45 minutes),
+  then smoke-tests one test image per class and requires at least 5 of 6 correct.
+* The endpoint name is workspace-global and not prefixed by development mode, so the `dev`
+  target overrides it to `msd-defect-classifier-dev`.
+
+### 4.6 Playbook index
 
 `src/playbook/defect_playbook.yaml` is the source of truth (v1.0.0, status `draft`, pending SME
 review). `03_playbook` validates it (exactly the six NEU classes, unique `playbook_id`, required
@@ -127,7 +172,7 @@ sequenceDiagram
   participant L as Foundation Model API
   U->>A: Upload image
   A->>M: POST base64 image
-  M-->>A: class probabilities
+  M-->>A: predicted_class, confidence, probabilities
   A->>A: top-k, severity, human-review flag
   A->>W: SELECT playbook entry for top-1 (and top-2 if low confidence)
   W-->>A: playbook rows
@@ -226,13 +271,17 @@ erDiagram
     double precision
     double recall
     double f1
+    int support
     double accuracy
+    double macro_f1
     timestamp evaluated_at
   }
 ```
 
 All objects live in `poc_metal_surface_defect_diagnostics.metal_surface_defects` together with
-the `raw` volume and the registered model `msd_defect_classifier`.
+the `raw` volume and the registered model `msd_defect_classifier`. `model_eval_metrics` is
+append-only: one row per evaluated model version and defect class (`accuracy` and `macro_f1`
+repeat the version-level values).
 
 ## 7. Codebase structure
 
@@ -242,6 +291,7 @@ metal_surface_defect_diagnostics/
   resources/                # one file per resource: <name>.<type>.yml
     msd.schema.yml
     msd.volume.yml
+    msd.experiment.yml      # phase 3
     msd_training.job.yml    # phase 2-3
     msd_app.app.yml         # phase 4
   src/
@@ -251,7 +301,8 @@ metal_surface_defect_diagnostics/
   README.md  ARCHITECTURE.md  CHANGELOG.md  PLAN.md
 ```
 
-Conventions: resource keys are prefixed `msd`; all names and endpoints come from bundle variables;
+Conventions: resource keys are prefixed `msd` and must be unique across resource types (the
+schema is `msd`, the experiment `msd_classifier`); all names and endpoints come from bundle variables;
 notebooks read parameters from job widgets; no hard-coded catalog or schema in code.
 
 ## 8. Configuration
@@ -262,7 +313,9 @@ notebooks read parameters from job widgets; no hard-coded catalog or schema in c
 | `schema` | `metal_surface_defects` | all |
 | `raw_volume` | `raw` | ingest |
 | `model_name` | `msd_defect_classifier` | train, evaluate, deploy |
-| `serving_endpoint` | `msd-defect-classifier` | deploy, app |
+| `serving_endpoint` | `msd-defect-classifier` (`dev`: `msd-defect-classifier-dev`) | deploy, app |
+| `train_epochs` | `8` | train |
+| `min_test_accuracy` | `0.90` | evaluate (promotion gate) |
 | `llm_endpoint` | `databricks-meta-llama-3-3-70b-instruct` | app |
 | `warehouse_id` | `b91f5b2fb518a0b7` (`demo_serverles`) | app |
 | `confidence_threshold` | `0.70` | app |
@@ -294,3 +347,8 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
   mapping is illustrative.
 * The playbook is POC content and requires integrity-engineer sign-off before real use.
 * dev and prod share one workspace and catalog in this POC.
+* Every job run trains and registers a new version and promotes it if it clears the 90% gate,
+  even when it is not better than the current champion, which triggers an endpoint rollout
+  (about 11 minutes).
+* Most remaining classifier errors are `inclusion` or `patches` predicted as `pitted_surface`.
+* With scale-to-zero, the first request after an idle period waits for the endpoint to start.

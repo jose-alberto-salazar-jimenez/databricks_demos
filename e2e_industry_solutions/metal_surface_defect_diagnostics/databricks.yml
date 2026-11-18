@@ -35,12 +35,21 @@ variables:
   confidence_threshold:
     description: Below this top-1 confidence the result is routed to human review
     default: "0.70"
+  min_test_accuracy:
+    description: Promotion gate - a new model version becomes @champion only at or above this test accuracy
+    default: "0.90"
+  train_epochs:
+    description: Training epochs for the CPU transfer-learning run
+    default: "8"
 
 targets:
   dev:
     # Personal deployment: jobs prefixed with [dev <user>], schedules paused.
     mode: development
     default: true
+    variables:
+      # Serving endpoint names are workspace-global and not prefixed by development mode.
+      serving_endpoint: msd-defect-classifier-dev
 
   prod:
     # Shared deployment. Today deployed by the owner; to be moved to a CI/CD service principal.

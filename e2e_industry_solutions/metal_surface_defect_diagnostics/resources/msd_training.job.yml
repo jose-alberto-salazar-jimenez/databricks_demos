@@ -1,4 +1,4 @@
-# Build plane job: ingest -> (train -> evaluate -> deploy endpoint, Phase 3) and playbook load.
+# Build plane job: ingest -> train -> evaluate -> deploy_endpoint, plus playbook load.
 # Tasks run on serverless compute (no cluster definition). Parameters come from bundle variables;
 # the schema is taken from the schema resource so dev (prefixed) and prod resolve correctly.
 resources:
@@ -7,8 +7,10 @@ resources:
       name: msd_training
       description: >-
         Metal Surface Defect Diagnostics build plane: extract the NEU zip, Auto Loader into
-        image_bronze, build image_index, and load the SME defect playbook index.
+        image_bronze, build image_index, load the SME defect playbook index, train and register
+        the classifier, evaluate and promote @champion, and deploy the serving endpoint.
       max_concurrent_runs: 1
+      timeout_seconds: 7200
       parameters:
         - name: catalog
           default: ${var.catalog}
@@ -18,6 +20,16 @@ resources:
           default: ${var.raw_volume}
         - name: playbook_path
           default: ${workspace.file_path}/src/playbook/defect_playbook.yaml
+        - name: model_name
+          default: ${var.model_name}
+        - name: experiment_path
+          default: ${resources.experiments.msd_classifier.name}
+        - name: epochs
+          default: ${var.train_epochs}
+        - name: min_test_accuracy
+          default: ${var.min_test_accuracy}
+        - name: serving_endpoint
+          default: ${var.serving_endpoint}
       tasks:
         - task_key: ingest
           notebook_task:
@@ -26,6 +38,25 @@ resources:
         - task_key: playbook
           notebook_task:
             notebook_path: ../src/pipeline/03_playbook.ipynb
+
+        - task_key: train
+          depends_on:
+            - task_key: ingest
+          notebook_task:
+            notebook_path: ../src/pipeline/02_train.ipynb
+
+        - task_key: evaluate
+          depends_on:
+            - task_key: train
+          notebook_task:
+            notebook_path: ../src/pipeline/04_evaluate.ipynb
+
+        - task_key: deploy_endpoint
+          depends_on:
+            - task_key: evaluate
+            - task_key: playbook
+          notebook_task:
+            notebook_path: ../src/pipeline/05_deploy_endpoint.ipynb
 
       tags:
         project: metal_surface_defect_diagnostics

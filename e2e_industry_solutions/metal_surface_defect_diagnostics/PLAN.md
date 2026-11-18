@@ -1,6 +1,6 @@
 # Metal Surface Defect Diagnostics - Implementation Plan
 
-Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0.
+Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0.
 
 ## 1. Goal
 
@@ -19,7 +19,7 @@ Proof of concept for **pipe corrosion image diagnostics (predictive and prescrip
 | Data ingestion | User uploads the dataset zip manually to a UC Volume; a job step extracts it, then Auto Loader (`binaryFile`) incrementally loads images into a Delta table with labels derived from folder names |
 | Model | Lightweight transfer learning on CPU (MobileNetV3-Small, ResNet18 fallback), PyTorch + torchvision. The reference architecture uses serverless GPU; CPU was chosen for simplicity, and the training notebook is written so switching to GPU is a compute change only |
 | Tracking / registry | MLflow, registered in Unity Catalog as `msd_defect_classifier` with alias `champion` |
-| Serving | Databricks Model Serving, CPU, small, scale-to-zero, endpoint `msd-defect-classifier` |
+| Serving | Databricks Model Serving, CPU, small, scale-to-zero, endpoint `msd-defect-classifier` (`msd-defect-classifier-dev` in dev) |
 | LLM | `databricks-meta-llama-3-3-70b-instruct` (configurable bundle variable) |
 | Grounding | SME playbooks versioned as YAML in the repo, loaded into a Delta "playbook index" table, retrieved by class and injected into the prompt; the report cites the source playbook entry |
 | App identity | The app calls Model Serving, the SQL warehouse and the Foundation Model API with its own service principal |
@@ -92,7 +92,8 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
   resources/
     msd.schema.yml               # bundle-owned schema
     msd.volume.yml               # raw data volume
-    msd_training.job.yml         # ingest -> train -> playbook -> evaluate -> deploy endpoint  (phase 2-3)
+    msd.experiment.yml           # MLflow experiment per target                                (phase 3)
+    msd_training.job.yml         # ingest -> train -> evaluate -> deploy endpoint, + playbook  (phase 2-3)
     msd_app.app.yml              # Streamlit Databricks App                                    (phase 4)
   src/
     pipeline/
