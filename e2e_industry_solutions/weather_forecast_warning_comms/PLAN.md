@@ -26,19 +26,19 @@ Peru/Ecuador, dries Colombia and the Pacific side of Costa Rica/Panama (Dry Corr
 Languages: Spanish, English (extensible).
 
 Coverage (decided): land grid + all towns/cities.
-* Grid: 20 km for PE/CO/EC (~6,800 points), 10 km for CR/PA (~1,300 points), land only.
-  Estimates from country area; exact count validated in phase 2.
+* Grid: 20 km for PE/CO/EC (6,788 points), 10 km for CR/PA (1,272 points), land only.
+  Counted in phase 2 with a Natural Earth land mask.
 * Towns: all GeoNames populated places (CC-BY), each mapped to its nearest grid cell, so any
   town or coordinate resolves to a cell.
-* Budget: ~8,100 points/day fits Open-Meteo's free tier (10,000 calls/day, non-commercial).
-  One forecast call per point returns past 92 days + 16-day forecast; deep history (ERA5
+* Budget: 8,060 points/day fits Open-Meteo's free tier (10,000 calls/day, non-commercial).
+  1 call/point (<=10 vars, <=14 days): +/-11 days (past from stored runs); deep history (ERA5
   archive) is a one-off backfill spread over several days.
 
 ## 3. Data sources (all public or synthetic, no API keys)
 
 | Source | Content | Use |
 | --- | --- | --- |
-| Open-Meteo Historical + Forecast API | Daily/hourly temp, precip, wind, 16-day forecast | Past, current, future trends |
+| Open-Meteo Historical + Forecast API | Daily/hourly temp, precip, wind, 11-day forecast | Past, current, future trends |
 | NOAA CPC ONI index | Monthly ENSO index / phase | Seasonal context |
 | GDACS alerts (RSS/JSON) | Floods, cyclones, droughts | Extreme events |
 | GeoNames dumps | Towns/cities, admin areas, population | Location search |
@@ -68,7 +68,7 @@ Volume: `bronze.landing` for raw API files.
 | --- | --- |
 | bronze | `open_meteo_history_raw`, `open_meteo_forecast_raw`, `enso_oni_raw`, `gdacs_events_raw`, `synthetic_impacts_raw`, `citizen_feedback_raw` |
 | silver | `dim_location`, `weather_observed_daily`, `weather_forecast_daily`, `enso_phase_monthly`, `extreme_events`, `citizen_feedback` |
-| gold | `location_weather_summary` (last 7d / today / next 16d), `forecast_vs_observed_skill`, `risk_features`, `risk_scores`, `advisories`, `feedback_metrics` |
+| gold | `location_weather_summary` (last 11d / today / next 11d), `forecast_vs_observed_skill`, `risk_features`, `risk_scores`, `advisories`, `feedback_metrics` |
 
 Governance: table/column comments, tags (`pii`, `domain`), column mask on feedback contact
 fields, grants for an app service principal and an analysts group, lineage visible in UC.
@@ -116,7 +116,7 @@ forecast vs citizen reports last week in Costa Rica?". Separate from the app.
 ## 10. Databricks App
 
 * Location selection: search city/town, pick on map, or enter coordinates (nearest grid point).
-* Views: past 7 days, today, 16-day outlook charts; risk badges per hazard; ENSO card;
+* Views: past 11 days, today, next 11 days; risk badges per hazard; ENSO card;
   personalized advisory (language + user type); feedback form (writes to Lakebase).
 * Framework (decided): Dash (Plotly) + dash-leaflet maps. Python only, explicit callbacks,
   multi-page; runs on Flask/gunicorn so it scales horizontally, and REST routes on the same

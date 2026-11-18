@@ -16,7 +16,7 @@ Seasonal ENSO risk (El Nino / La Nina) is rarely translated into local, practica
 
 A citizen, farmer or municipal officer picks a city, town, map point or coordinates and gets:
 
-* The last 7 days, today, and the 16-day outlook (rain, temperature, wind).
+* The last 11 days, today, and the next 11 days (rain, temperature, wind).
 * Risk of extreme events in the next 72 hours (ML model) and the current ENSO phase.
 * A preventive advisory written for their user type and language (LLM).
 * A form to report what they actually experienced and how they rate the forecast. This
