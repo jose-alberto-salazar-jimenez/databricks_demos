@@ -2,7 +2,8 @@
 
 Exact content of the Discover objects used in this demo, read back from the live workspace on 2026-11-18.
 Discover objects are not deployable from SQL, so recreate them in the UI (or with the Beta domains API) using
-the values below. Everything was left in **draft**; publish after review.
+the values below. The domain, both subdomains and all 5 Pages were reviewed and **published on 2026-11-18**;
+domain sections feature the metric views and both Genie Agents.
 
 ## Prerequisites
 
@@ -21,11 +22,13 @@ the values below. Everything was left in **draft**; publish after review.
 UI steps:
 1. Discover > **Create domain** > select the existing governed tag `Revenue` > fill Subtitle and Description > **Create** (stays draft).
 2. Open **Revenue** > **Create subdomain** > **Use an existing tag** > `Revenue/RecurringRevenue` > fill fields > **Create**. Repeat for `Revenue/CustomerHealth`.
-3. Optional: **Edit Sections** to feature the metric views and both Genie Agents. **Publish** only after review.
+3. **Edit Sections** to feature the metric views and both Genie Agents (RecurringRevenue: `saas_revenue_metrics` + Genie Agent "Revenue and Retention"; CustomerHealth: `saas_customer_metrics` + Genie Agent "Customer Success"). **Publish** after review (done for this demo on 2026-11-18).
 
 Note: creating a domain through the API published it immediately (`isDraft: false`); set it back to draft if you want a review step.
 
-## 2. Pages (draft, owner = demo author)
+## 2. Pages (published, owner = demo author)
+
+To publish a draft: Discover > **Pages** > **Show drafts** > open the Page > **Publish** (Page managers and curators only).
 
 Each Page has a one-sentence description, synonyms, a body with the definition, and linked assets.
 
@@ -103,9 +106,9 @@ Query the `logo_churn_rate` measure in `saas_demo.gold.saas_revenue_metrics`. It
 
 ARPA, Active customer, Cohort retention (CustomerHealth); MRR growth MoM / YoY and Annualized NRR (RecurringRevenue) - matching the time-comparison measures in `saas_revenue_metrics`.
 
-## Checklist before publishing
+## Checklist before publishing (completed 2026-11-18)
 
-- [ ] Domain and both subdomains: subtitle and description reviewed
-- [ ] 5 Pages reviewed (check Related assets in the UI; an API read-back may list only one linked asset per Page)
-- [ ] Domain sections feature both metric views and both Genie Agents
-- [ ] Publish domain, subdomains, then Pages
+- [x] Domain and both subdomains: subtitle and description reviewed
+- [x] 5 Pages reviewed (check Related assets in the UI; an API read-back may list only one linked asset per Page)
+- [x] Domain sections feature both metric views and both Genie Agents
+- [x] Publish domain, subdomains, then Pages
