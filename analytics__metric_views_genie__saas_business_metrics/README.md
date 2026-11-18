@@ -53,6 +53,7 @@ flowchart LR
 | `sql/08_column_comments.sql` | Business comments for every silver table and gold MV column (applied) |
 | `genie/*.json` | Exact exported configuration of both Genie Agents |
 | `scripts/deploy_governance_and_genie.py` | Creates governed tags, Genie Agents and their tags via REST |
+| `scripts/monthly_refresh.py` | Monthly job: rebuilds silver, refreshes gold MVs, restores comments and tags, validates |
 | `docs/question_bank.md` | 20 validated business questions with SQL (6 deliberately ambiguous) |
 | `docs/discover_setup.md` | Exact Discover domain, subdomain and Page content, with UI steps |
 
@@ -140,7 +141,9 @@ Note: creating a domain through the API published it immediately; set it back to
 3. Run `sql/08_column_comments.sql`, then `sql/07_validation.sql` - all reconciliation checks must be 0.
 4. Run `scripts/deploy_governance_and_genie.py` (set `WAREHOUSE_ID` and `PARENT_PATH`).
 5. Create the Discover domain/subdomains and Pages (UI), review, then publish.
-6. Refresh the MVs on the 1st of each month (the window moves with `current_date()`).
+6. Keep the demo current: schedule `scripts/monthly_refresh.py` as a Lakeflow Job (serverless python file task,
+   git source = this repo on `main`) on the 1st of each month. Without it, questions about "the last complete month"
+   return no data once the calendar month changes, because silver is a snapshot built for one window.
 
 ## Validation results (2026-11-17, after the P1 fixes)
 
