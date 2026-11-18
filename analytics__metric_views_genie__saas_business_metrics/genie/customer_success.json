@@ -1,0 +1,485 @@
+{
+  "title": "Customer Success",
+  "description": "For customer success managers: ask about active customers, ARPA, tenure, churned accounts and signup-cohort retention by segment, region and plan. Built on the certified metric view saas_demo.gold.saas_customer_metrics (synthetic SaaS demo data, fictional company names, USD).",
+  "serialized_space": {
+    "version": 2,
+    "config": {
+      "sample_questions": [
+        {
+          "id": "b1000000000000000000000000000001",
+          "question": [
+            "How many active customers do we have by segment, and what is their ARPA?"
+          ]
+        },
+        {
+          "id": "b1000000000000000000000000000002",
+          "question": [
+            "What is 6-month retention for each signup cohort?"
+          ]
+        },
+        {
+          "id": "b1000000000000000000000000000003",
+          "question": [
+            "Which Enterprise accounts churned recently?"
+          ]
+        }
+      ]
+    },
+    "data_sources": {
+      "tables": [
+        {
+          "identifier": "saas_demo.gold.cohort_retention",
+          "description": [
+            "Signup-month cohort x months since signup. Logo retention = customers_active / customers_start; revenue retention = mrr_now / mrr_start. Never sum rows within a cohort."
+          ],
+          "column_configs": [
+            {
+              "column_name": "customers_active",
+              "synonyms": [
+                "retained customers",
+                "customers still active"
+              ]
+            },
+            {
+              "column_name": "months_since_signup",
+              "synonyms": [
+                "cohort age",
+                "months since acquisition"
+              ]
+            },
+            {
+              "column_name": "mrr_now",
+              "synonyms": [
+                "retained MRR",
+                "cohort recurring revenue"
+              ]
+            },
+            {
+              "column_name": "signup_month",
+              "synonyms": [
+                "cohort",
+                "acquisition month"
+              ],
+              "enable_format_assistance": true
+            }
+          ]
+        },
+        {
+          "identifier": "saas_demo.gold.customer_snapshot",
+          "description": [
+            "One row per customer as of the end of the last complete month. Use for account lists. Company names are fictional."
+          ],
+          "column_configs": [
+            {
+              "column_name": "churn_month",
+              "synonyms": [
+                "cancellation month"
+              ],
+              "enable_format_assistance": true
+            },
+            {
+              "column_name": "company_name",
+              "synonyms": [
+                "account name",
+                "customer name"
+              ],
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "current_mrr",
+              "synonyms": [
+                "MRR",
+                "recurring revenue"
+              ]
+            },
+            {
+              "column_name": "plan",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "region",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "segment",
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "status",
+              "synonyms": [
+                "churn status",
+                "account status"
+              ],
+              "enable_format_assistance": true,
+              "enable_entity_matching": true
+            },
+            {
+              "column_name": "tenure_months",
+              "synonyms": [
+                "tenure",
+                "customer age",
+                "customer lifetime"
+              ]
+            }
+          ]
+        },
+        {
+          "identifier": "saas_demo.gold.saas_customer_metrics",
+          "description": [
+            "Certified customer-base KPIs as of the end of the last complete month."
+          ],
+          "column_configs": [
+            {
+              "column_name": "active_customers",
+              "synonyms": [
+                "active accounts",
+                "paying customers",
+                "logos"
+              ]
+            },
+            {
+              "column_name": "arpa",
+              "synonyms": [
+                "average revenue per account",
+                "average revenue per customer"
+              ]
+            },
+            {
+              "column_name": "avg_tenure_months",
+              "synonyms": [
+                "average tenure",
+                "average customer lifetime"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "instructions": {
+      "text_instructions": [
+        {
+          "id": "b2000000000000000000000000000001",
+          "content": [
+            "* Use saas_demo.gold.saas_customer_metrics with MEASURE() for active customers, ARPA and tenure. Use customer_snapshot for account lists and cohort_retention for cohort retention.\n",
+            "* All figures are as of the end of the last complete month.\n",
+            "* Average tenure includes churned customers unless you filter status; always say which population you used.\n",
+            "* Cohort logo retention = customers_active / customers_start; revenue retention = mrr_now / mrr_start. Never sum across months_since_signup.\n",
+            "* Churn here means customers lost (logo churn). For revenue churn, MRR trends or NRR, point users to the Revenue and Retention agent.\n",
+            "* Company names are fictional; amounts are USD."
+          ]
+        }
+      ],
+      "example_question_sqls": [
+        {
+          "id": "b3000000000000000000000000000001",
+          "question": [
+            "How many active customers do we have by segment, and what is their ARPA?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa\n",
+            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `segment`"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000002",
+          "question": [
+            "Show active customers, ARPA and tenure by region and plan for a segment"
+          ],
+          "sql": [
+            "SELECT `region`, `plan`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa, MEASURE(`avg_tenure_months`) AS avg_tenure_months\n",
+            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "WHERE `segment` = :segment\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `region`, `plan`"
+          ],
+          "parameters": [
+            {
+              "name": "segment",
+              "type_hint": "STRING",
+              "description": [
+                "Customer segment: SMB, Mid-Market or Enterprise"
+              ],
+              "default_value": {
+                "values": [
+                  "Enterprise"
+                ]
+              }
+            }
+          ],
+          "usage_guidance": [
+            "Use when the user asks for customer KPIs within one segment"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000003",
+          "question": [
+            "What is 6-month retention for each signup cohort?"
+          ],
+          "sql": [
+            "SELECT signup_month, customers_start, customers_active,\n",
+            "  customers_active / customers_start AS logo_retention_m6, mrr_now / mrr_start AS revenue_retention_m6\n",
+            "FROM saas_demo.gold.cohort_retention\n",
+            "WHERE months_since_signup = 6\n",
+            "ORDER BY signup_month"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000004",
+          "question": [
+            "Which Enterprise accounts churned in the last 6 months?"
+          ],
+          "sql": [
+            "SELECT customer_id, company_name, region, plan, churn_month, tenure_months\n",
+            "FROM saas_demo.gold.customer_snapshot\n",
+            "WHERE status = 'churned' AND segment = 'Enterprise'\n",
+            "  AND churn_month >= add_months(trunc(current_date(), 'MM'), -6)\n",
+            "ORDER BY churn_month DESC"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000005",
+          "question": [
+            "How long do customers stay before they churn, by segment?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure_months\n",
+            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "WHERE `status` = 'churned'\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `segment`"
+          ]
+        }
+      ],
+      "sql_snippets": {
+        "filters": [
+          {
+            "id": "b4000000000000000000000000000001",
+            "sql": [
+              "customer_snapshot.status = 'active'"
+            ],
+            "display_name": "active customer",
+            "synonyms": [
+              "paying customer",
+              "active account",
+              "current customer"
+            ]
+          },
+          {
+            "id": "b4000000000000000000000000000002",
+            "sql": [
+              "customer_snapshot.status = 'churned'"
+            ],
+            "display_name": "churned customer",
+            "synonyms": [
+              "attrition",
+              "attrited customer",
+              "lost customer",
+              "cancelled customer"
+            ]
+          },
+          {
+            "id": "b4000000000000000000000000000003",
+            "sql": [
+              "customer_snapshot.segment = 'Enterprise'"
+            ],
+            "display_name": "enterprise segment",
+            "synonyms": [
+              "enterprise customers",
+              "large accounts"
+            ]
+          },
+          {
+            "id": "b4000000000000000000000000000004",
+            "sql": [
+              "customer_snapshot.churn_month >= add_months(trunc(current_date(), 'MM'), -3)"
+            ],
+            "display_name": "churned recently",
+            "instruction": [
+              "Churned in the last 3 complete months"
+            ],
+            "synonyms": [
+              "recent churn",
+              "recently lost"
+            ]
+          }
+        ],
+        "expressions": [
+          {
+            "id": "b5000000000000000000000000000001",
+            "alias": "tenure_band",
+            "sql": [
+              "CASE WHEN customer_snapshot.tenure_months < 6 THEN '0-5 months' WHEN customer_snapshot.tenure_months < 12 THEN '6-11 months' ELSE '12+ months' END"
+            ],
+            "display_name": "tenure band",
+            "synonyms": [
+              "customer age band",
+              "tenure bucket"
+            ]
+          },
+          {
+            "id": "b5000000000000000000000000000002",
+            "alias": "cohort_logo_retention",
+            "sql": [
+              "cohort_retention.customers_active / cohort_retention.customers_start"
+            ],
+            "display_name": "cohort logo retention",
+            "synonyms": [
+              "customer retention rate",
+              "retention rate"
+            ]
+          }
+        ]
+      }
+    },
+    "benchmarks": {
+      "questions": [
+        {
+          "id": "b6000000000000000000000000000010",
+          "question": [
+            "How long do customers who cancelled stay, per segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000009",
+          "question": [
+            "Average revenue per account for each segment, with customer counts"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000008",
+          "question": [
+            "Number of active accounts?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000007",
+          "question": [
+            "How does tenure compare between active and churned customers in each segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, `status`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`, `status`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000006",
+          "question": [
+            "What is 6-month retention for each signup cohort?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT signup_month, customers_start, customers_active, customers_active / customers_start AS logo_retention_m6, mrr_now / mrr_start AS revenue_retention_m6 FROM saas_demo.gold.cohort_retention WHERE months_since_signup = 6 ORDER BY signup_month"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000005",
+          "question": [
+            "Which region has the lowest ARPA among Enterprise accounts?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics WHERE `segment` = 'Enterprise' GROUP BY ALL ORDER BY arpa ASC LIMIT 1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000004",
+          "question": [
+            "How long do churned customers stay before leaving, by segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000003",
+          "question": [
+            "What is ARPA by plan and region?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `plan`, `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `plan`, `region`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000002",
+          "question": [
+            "What are active customers and ARPA by segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000001",
+          "question": [
+            "How many active customers do we have?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
