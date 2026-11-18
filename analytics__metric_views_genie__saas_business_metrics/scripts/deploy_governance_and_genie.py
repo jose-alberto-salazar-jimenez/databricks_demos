@@ -1,4 +1,4 @@
-"""Create governed tags, Genie Agents and Genie tags for the SaaS metrics demo.
+"""Create governed tags, Genie Agents and Genie Agent tags for the SaaS metrics demo.
 
 Run after sql/01..06 in a Databricks notebook or with a configured Databricks CLI profile.
 Discover domains and Pages are created in the UI (see README, "Discover setup").

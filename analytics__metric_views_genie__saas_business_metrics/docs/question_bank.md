@@ -2,8 +2,8 @@
 
 Values were checked on 2026-11-17 (last complete month = Oct 2026). Rates are monthly;
 over several months they are pooled monthly averages. Ambiguous questions have two valid answers
-and are intentionally NOT used as Genie benchmarks (a benchmark has one ground truth, so it would
-penalize Genie for correctly asking "logo or revenue churn?").
+and are intentionally NOT used as Genie Agent benchmarks (a benchmark has one ground truth, so it would
+penalize the Genie Agent for correctly asking "logo or revenue churn?").
 
 ## Audience A - Finance / RevOps (`gold.saas_revenue_metrics`)
 
