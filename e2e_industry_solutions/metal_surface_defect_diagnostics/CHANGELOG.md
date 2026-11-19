@@ -19,6 +19,13 @@ How to use:
 * Planned reviewer access and supervision (not built): roles (field engineer, reviewer group,
   supervisor group), app-side or Unity Catalog-enforced checks, four-eyes sign-off for verdicts
   that change the outcome, audit view (ARCHITECTURE 10.1, PLAN section 13 backlog).
+* Recommended enhancements with estimates (PLAN section 13, not built): Phase 5a demo
+  reliability (calibration + OOD rejection, vision-model second opinion, asset context, endpoint
+  warm-up) and Phase 5b MLOps loop (retrain from reviews, champion-vs-challenger gate, inference
+  logging + drift monitoring, MLflow tracing + judges).
+* Notes for consideration (PLAN section 13): Genie space for supervisors, CI/CD with a service
+  principal, separate dev and prod catalogs, review-image retention; Vector Search and GPU
+  training not needed at POC scale.
 
 ## [1.4.1] - 2026-11-19
 

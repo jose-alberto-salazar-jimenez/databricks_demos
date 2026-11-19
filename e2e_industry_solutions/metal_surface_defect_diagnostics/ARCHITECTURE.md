@@ -447,6 +447,13 @@ then deploy again to create the app.
 * Retraining from reviews: add `expert_review` images with `corrected_class` (or confirmed
   labels) to the training data and track agreement between model and reviewers over time.
 * Reviewer access and supervision: see 10.1.
+* Recommended next (not built, PLAN section 13): calibrated confidence and out-of-distribution
+  rejection, a vision-model second opinion, asset context on cases, endpoint warm-up, retraining
+  from expert reviews, a champion-vs-challenger gate, inference logging with drift monitoring,
+  and MLflow tracing with judges for report quality.
+* For consideration: a Genie space over the feedback and evaluation tables; CI/CD that deploys
+  prod as a service principal; separate dev and prod catalogs; a retention rule for review
+  images (PLAN section 13).
 
 ### 10.1 Planned: reviewer access and supervision (not built)
 
@@ -508,6 +515,9 @@ adds a verdicts table.
   even when it is not better than the current champion, which triggers an endpoint rollout
   (about 11 minutes).
 * Most remaining classifier errors are `inclusion` or `patches` predicted as `pitted_surface`.
+* Confidence is not calibrated and there is no out-of-distribution check: a photo unlike the
+  NEU images (for example a real pipe or a non-metal object) still gets a class, often with high
+  confidence (recommended fix in PLAN section 13).
 * With scale-to-zero, the first request after an idle period waits for the endpoint to start.
 * Anyone with access to the app can submit an expert review; there is no reviewer role or
   supervisor sign-off yet (planned, see 10.1).

@@ -163,6 +163,12 @@ after the phase is merged. Later releases need only `bundle deploy --target prod
 `bundle run msd_app --target prod` for app code changes, and `bundle run msd_training` for
 retraining).
 
+## Recommended next steps
+
+The POC is complete; recommended enhancements (not built) are listed with estimates in
+`PLAN.md` section 13. The most important: calibrated confidence and rejection of images unlike
+the training data (field photos differ from NEU), and retraining from expert reviews.
+
 ## Configuration
 
 All names are bundle variables in `databricks.yml` (catalog, schema, volume, model name, serving
