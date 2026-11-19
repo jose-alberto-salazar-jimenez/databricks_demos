@@ -1,6 +1,6 @@
 # Metal Surface Defect Diagnostics - Implementation Plan
 
-Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0. Phase 4 (app) released in 1.4.0.
+Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0. Phase 4 (app) released in 1.4.0; first prod deployment and review-flow fix in 1.4.1.
 
 ## 1. Goal
 
@@ -150,8 +150,8 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 
 * Phone-width single column (480 px) with an app bar; no sidebar (config and disclaimer in "About this app").
 * Top-level tabs: **Diagnose** and **Review cases**.
-* Diagnose: one image per analysis (upload or camera; JPG, PNG, BMP up to 10 MB), preview, **Analyze image**, then the result card (defect, category, alternative when unconfirmed, severity, confidence and review chips, top-3 bars), an "Unconfirmed result" banner when review is required, tabs **Report / Playbook / Model**, **Download PDF report**, a thumbs rating, and an **Expert review** section (send to review, or review now). **New analysis** resets.
-* Review cases: Open and Reviewed lists; each open case shows image, model output and report next to the review form; reviewed cases show the verdict, corrected class, reviewer severity, reviewer and notes.
+* Diagnose: one image per analysis (upload or camera; JPG, PNG, BMP up to 10 MB), preview, **Analyze image**, then the result card (defect, category, alternative when unconfirmed, severity, confidence and review chips, top-3 bars), an "Unconfirmed result" banner when review is required, tabs **Report / Playbook / Model**, **Download PDF report**, a thumbs rating, and a **Send to expert review** section (optional suspected class and note; requests only, no verdicts). **New analysis** resets.
+* Review cases: Open and Reviewed lists; each open case shows image, model output and report next to the review form (the only place a verdict is recorded); reviewed cases show the verdict, corrected class, reviewer severity, reviewer and notes.
 
 ## 9. Phases, build steps and acceptance criteria
 
@@ -182,7 +182,7 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 * NEU images are steel strip defects, not in-service pipeline images; the corrosion mapping is illustrative.
 * CPU training keeps setup simple but is slower; image size and epochs are kept small.
 * The playbook is POC content and must be reviewed by integrity engineers before real use.
-* No user authentication beyond Databricks App workspace auth and no reviewer role: any app user can submit an expert review.
+* No user authentication beyond Databricks App workspace auth and no reviewer role: any app user can submit an expert review, and a verdict closes the case without supervisor sign-off (planned, see section 13).
 * Uploaded images are persisted only for review cases and expert reviews (`raw/reviews/`).
 * dev and prod share one workspace and catalog in this POC.
 
@@ -197,3 +197,42 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 
 * `CHANGELOG.md` follows Keep a Changelog and Semantic Versioning.
 * Initial release `1.0.0`. New work goes under `[Unreleased]` and is promoted to a new version when the PR is merged.
+
+## 13. Backlog (documented, not built)
+
+| Item | Scope | Acceptance criteria |
+| --- | --- | --- |
+| Reviewer access | Verdicts restricted to an integrity-engineer group (`msd-reviewers`); app-side group check first, Unity Catalog-enforced writes as an option (ARCHITECTURE 10.1) | A non-member sees open cases read-only and cannot submit a verdict, also not by replaying the request; a member can |
+| Supervision (four eyes) | Supervisor group (`msd-review-supervisors`) approves or rejects verdicts that change the outcome (corrected, inconclusive, High/Critical); new `supervisor_approval` row | Such verdicts move the case to Pending approval, not Reviewed; approval closes the case, rejection reopens it; nobody approves their own verdict |
+| Review audit | AI/BI dashboard on `diagnosis_feedback` | Shows open backlog, time to verdict and to approval, model-reviewer agreement, overrides per reviewer |
+
+### Recommended enhancements (not built)
+
+The NEU test set is clean and in-distribution (prod model v1: 180/180 correct), while field photos of pipes are not, so the classifier can be confidently wrong. These items make the demo honest about uncertainty and close the learning loop. Estimates are build effort in dev plus about 2-3 hours of job runs and endpoint rollouts.
+
+Phase 5a - demo reliability (about 6-8 h):
+
+| Enhancement | Scope | Estimate |
+| --- | --- | --- |
+| Calibrated confidence + out-of-distribution (OOD) rejection | Temperature scaling fitted on the `val` split; an OOD score (for example embedding distance to training classes); the model returns both; the app adds a "Not recognised" outcome routed to review. Needs a retrain and endpoint rollout. Test with 10-20 real or unrelated photos. | 3-4 h |
+| Vision-model second opinion | A multimodal Foundation Model (for example `databricks-claude-sonnet-4-6` or `databricks-llama-4-maverick`, available in this workspace) describes the image in structured form; disagreement with the classifier routes to review; shown in the Model tab and PDF. | 1.5-2 h |
+| Asset context | Optional asset ID, location and inspection date on Diagnose; additive columns in `diagnosis_feedback`; on the PDF and cases. Enables per-asset history and trends. | 1-1.5 h |
+| Endpoint warm-up | Background call on app open and a "model is waking up" notice, to hide the scale-to-zero cold start. | 0.5 h |
+
+Phase 5b - close the loop, MLOps (about 7-9 h):
+
+| Enhancement | Scope | Estimate |
+| --- | --- | --- |
+| Retrain from expert reviews | `ingest` adds confirmed and corrected review images to the training split only (never test), with a label-source column. | 2-2.5 h |
+| Champion-vs-challenger gate | `evaluate` scores the new version and the current champion on the same test set and promotes only if the new one is at least as good (avoids needless endpoint rollouts). | 1 h |
+| Inference logging + drift monitoring | Inference table on the endpoint, an unpacked predictions table, and a monitor for prediction and confidence drift (logs arrive with up to about an hour of delay). | 2-2.5 h |
+| Report quality | MLflow tracing on the app's LLM calls, and an evaluation notebook with judges for grounding in the playbook and required sections. | 2-2.5 h |
+
+Suggested delivery: one branch per phase, validated in dev, then PR and prod rollout per phase.
+
+### For consideration (not planned)
+
+* **Genie space** over `diagnosis_feedback` and `model_eval_metrics`, so supervisors can ask questions in plain language (for example "which defects are corrected most often?"). Pairs with the review audit dashboard.
+* **CI/CD with a service principal**: deploy prod from GitHub Actions as a service principal (`run_as` and app owner), instead of a personal user. Removes the dependency on personal credentials for app creation (`Invalid delegation claim`).
+* **Separate dev and prod catalogs**, and a retention rule for images under `raw/reviews/` (for example delete after N months unless used as training labels).
+* **Not needed at POC scale**: Vector Search over the playbook (six short entries; exact lookup is enough), GPU training (CPU trains in about 5 minutes). Reviewer roles and supervisor sign-off are designed above and needed only before real users.

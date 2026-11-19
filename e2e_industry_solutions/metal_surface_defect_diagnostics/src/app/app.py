@@ -399,7 +399,7 @@ def render_actions(cfg: dict, result: dict, n: int) -> None:
         if result.get("rated"):
             msg = "Thanks, your rating was saved."
             if result["rated"] == "down":
-                msg += " Please add what is wrong in Expert review below."
+                msg += " If the result looks wrong, use Send to expert review below."
             st.caption(msg)
         else:
             key = f"rate_{n}"
@@ -407,37 +407,43 @@ def render_actions(cfg: dict, result: dict, n: int) -> None:
         if result.get("rating_error"):
             st.error(f"Could not save the rating: {result['rating_error']}")
 
-    with st.expander("Expert review", expanded=a.human_review, icon=":material/engineering:"):
-        if result.get("review_id"):
-            st.success(f"Review saved (id {result['review_id'][:8]}). Case closed - thank you.", icon=":material/task_alt:")
-            return
+    # Diagnose only *requests* a review (opens a case). Verdicts are recorded on the Review cases
+    # tab, so a request can never be mistaken for a final verdict.
+    with st.expander("Send to expert review", expanded=a.human_review, icon=":material/engineering:"):
         if result.get("case_opened"):
             st.info(
                 "This analysis is in the expert review queue. It stays under **Review cases > Open** "
-                "until an integrity engineer reviews it.",
+                "until an integrity engineer records a verdict there.",
                 icon=":material/pending_actions:",
             )
-        else:
-            st.caption("Not sure about this result? Send it to the expert review queue.")
-            with st.form(f"request_{n}", border=False):
-                note = st.text_input("Note for the reviewer (optional)", max_chars=500)
-                send = st.form_submit_button("Send to expert review", icon=":material/send:", width="stretch")
-            if send:
-                try:
-                    with st.spinner("Opening the case..."):
-                        open_case(cfg, result, current_user(), notes=note.strip() or "Requested by the user.")
-                    st.rerun()
-                except Exception as e:  # noqa: BLE001 - surfaced to the user
-                    st.error(f"Could not open the case: {e}")
-        st.divider()
-        st.markdown("**Review it now** (integrity engineers)")
-        classes = [c for c, _ in severity.top_k(pred.probabilities, len(pred.probabilities))]
-        saved = review_form(
-            cfg, f"review_{n}", result["record"], classes, entries, lambda: ensure_image_copy(cfg, result)
+            return
+        st.caption(
+            "Not sure about this result? Send it to the expert review queue. An integrity engineer "
+            "confirms or corrects it on the Review cases tab."
         )
-        if saved:
-            result["review_id"] = saved
-            st.rerun()
+        classes = [c for c, _ in severity.top_k(pred.probabilities, len(pred.probabilities))]
+        with st.form(f"request_{n}", border=False):
+            suspected = st.selectbox(
+                "What do you think it is? (optional)",
+                classes,
+                index=None,
+                format_func=lambda c: display_name(c, entries),
+                placeholder="No opinion",
+                key=f"request_{n}_suspected",
+            )
+            note = st.text_input("Note for the reviewer (optional)", max_chars=500, key=f"request_{n}_note")
+            send = st.form_submit_button(
+                "Send to expert review", type="primary", icon=":material/send:", width="stretch"
+            )
+        if send:
+            parts = [f"Suspected defect: {display_name(suspected, entries)}."] if suspected else []
+            parts.append(note.strip() or "Requested by the user.")
+            try:
+                with st.spinner("Opening the case..."):
+                    open_case(cfg, result, current_user(), notes=" ".join(parts))
+                st.rerun()
+            except Exception as e:  # noqa: BLE001 - surfaced to the user
+                st.error(f"Could not open the case: {e}")
 
 
 # ---------------------------------------------------------------------------- review cases

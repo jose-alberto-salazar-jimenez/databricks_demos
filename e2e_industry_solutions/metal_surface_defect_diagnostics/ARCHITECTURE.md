@@ -242,16 +242,19 @@ Every analysis gets a `case_id`. All submissions are rows in `diagnosis_feedback
 | `feedback_type` | Created when | Effect |
 | --- | --- | --- |
 | `rating` | Thumbs up / down under the result | Usefulness signal; no case |
-| `review_request` | Automatically when human review is required, or **Send to expert review** (optional note) | Opens the case; the image is copied to `raw/reviews/<date>/<sha256-prefix>.<ext>` |
-| `expert_review` | Review form on the Diagnose tab or on an open case in **Review cases** | Closes the case with a verdict: `confirmed`, `corrected` (actual class required) or `inconclusive`, optional reviewer severity and notes |
+| `review_request` | Automatically when human review is required, or **Send to expert review** on the Diagnose tab (optional suspected class and note, stored in `notes`) | Opens the case; the image is copied to `raw/reviews/<date>/<sha256-prefix>.<ext>` |
+| `expert_review` | Review form on an open case in **Review cases** (the only place a verdict is recorded) | Closes the case with a verdict: `confirmed`, `corrected` (actual class required) or `inconclusive`, optional reviewer severity and notes |
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Open: review_request (auto or user)
-  [*] --> Reviewed: expert_review on the Diagnose tab
+  [*] --> Open: review_request (auto or Send to expert review)
   Open --> Reviewed: expert_review (Review cases tab)
   Reviewed --> [*]
 ```
+
+The Diagnose tab only requests reviews, so a request can never be recorded as a verdict by
+mistake. Expert reviews without a request (recorded from the Diagnose tab before 1.4.1) are
+listed under Reviewed as "reviewed directly".
 
 A case is open while it has a `review_request` and no `expert_review` with the same `case_id`.
 The **Review cases** tab lists Open and Reviewed cases (newest 30 each, cached 60 seconds,
@@ -415,6 +418,11 @@ App environment (`src/app/app.yaml`), resolved from the app resources in
 Targets: `dev` (development mode, default, job names prefixed and schedules paused) and `prod`
 (production mode, shared root path, owner CAN_MANAGE, `users` CAN_VIEW).
 
+First deployment of a target is two-pass: the app references `defect_playbook`,
+`diagnosis_feedback` and the classifier endpoint, which the build job creates (they are not
+bundle resources, so the deploy cannot order them before the app). Deploy, run `msd_training`,
+then deploy again to create the app.
+
 ## 9. Security and governance
 
 * Unity Catalog governs the volume, tables, registered model, serving endpoint and app access.
@@ -438,8 +446,64 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
   chunks when playbooks become long or multi-document.
 * Retraining from reviews: add `expert_review` images with `corrected_class` (or confirmed
   labels) to the training data and track agreement between model and reviewers over time.
-* Reviewer roles: restrict the Review cases tab and the review form to an engineers group (for
-  example by checking group membership of the forwarded user).
+* Reviewer access and supervision: see 10.1.
+* Recommended next (not built, PLAN section 13): calibrated confidence and out-of-distribution
+  rejection, a vision-model second opinion, asset context on cases, endpoint warm-up, retraining
+  from expert reviews, a champion-vs-challenger gate, inference logging with drift monitoring,
+  and MLflow tracing with judges for report quality.
+* For consideration: a Genie space over the feedback and evaluation tables; CI/CD that deploys
+  prod as a service principal; separate dev and prod catalogs; a retention rule for review
+  images (PLAN section 13).
+
+### 10.1 Planned: reviewer access and supervision (not built)
+
+Today any app user can record a verdict, and a verdict closes the case on its own. The planned
+model separates who can request, review and approve.
+
+| Role | Members (planned account groups) | Can |
+| --- | --- | --- |
+| Field engineer | every app user (`CAN_USE` on the app) | Diagnose, download PDF, rate, send to expert review |
+| Reviewer (integrity engineer) | `msd-reviewers` | Also record verdicts on open cases |
+| Supervisor | `msd-review-supervisors` | Also approve or reject verdicts, see the audit view |
+
+Group names would be bundle variables (`reviewer_group`, `supervisor_group`).
+
+Enforcement, two options:
+
+1. **App-side check (simplest).** With user authorization's default identity scopes, the app
+   reads the signed-in user's groups from the forwarded user token. It hides the review and
+   approval forms from non-members and checks membership again before every INSERT. Writes still
+   run as the app service principal, so the app code is the gate.
+2. **Enforced by Unity Catalog (stronger).** With user authorization and the `sql` scope,
+   verdict and approval writes run as the user. Verdicts go to a separate table on which only
+   the reviewer and supervisor groups have `MODIFY`. Requests stay in `diagnosis_feedback`,
+   written by the app. This needs one-time user consent and a table split.
+
+Supervision (four eyes):
+
+* Verdicts that change the outcome need a supervisor sign-off before the case closes:
+  `corrected`, `inconclusive`, or a reviewer severity of High or Critical. Confirmed
+  low-severity verdicts close directly.
+* The supervisor records a `supervisor_approval` row (`approved` or `rejected`, with a note).
+  A rejected verdict returns the case to Open.
+* Nobody approves their own verdict. Optionally, nobody reviews their own request.
+* Only approved verdicts become training labels (see "Retraining from reviews").
+* An audit view (AI/BI dashboard) shows the open backlog, time to verdict and to approval,
+  model-reviewer agreement, and overrides per reviewer.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Open: review_request
+  Open --> Reviewed: expert_review (confirmed, low severity)
+  Open --> PendingApproval: expert_review (corrected, inconclusive, High/Critical)
+  PendingApproval --> Reviewed: supervisor_approval = approved
+  PendingApproval --> Open: supervisor_approval = rejected
+  Reviewed --> [*]
+```
+
+Data model impact is additive: one new `feedback_type` (`supervisor_approval`), reusing
+`verdict` and `notes`, and the case state derived from the latest row per `case_id`. Option 2
+adds a verdicts table.
 
 ## 11. Known limitations
 
@@ -451,6 +515,12 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
   even when it is not better than the current champion, which triggers an endpoint rollout
   (about 11 minutes).
 * Most remaining classifier errors are `inclusion` or `patches` predicted as `pitted_surface`.
+* Confidence is not calibrated and there is no out-of-distribution check: a photo unlike the
+  NEU images (for example a real pipe or a non-metal object) still gets a class, often with high
+  confidence (recommended fix in PLAN section 13).
 * With scale-to-zero, the first request after an idle period waits for the endpoint to start.
-* Anyone with access to the app can submit an expert review; there is no reviewer role yet.
+* Anyone with access to the app can submit an expert review; there is no reviewer role or
+  supervisor sign-off yet (planned, see 10.1).
 * The Review cases tab shows the newest 30 open and 30 reviewed cases, without search or paging.
+* The first deployment of a target needs two passes (see section 8), and creating the app needs
+  the deployer's own credentials.
