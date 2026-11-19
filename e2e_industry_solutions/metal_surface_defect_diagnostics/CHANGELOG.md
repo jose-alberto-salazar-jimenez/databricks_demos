@@ -14,6 +14,45 @@ How to use:
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-19
+
+Phase 4 - app (branch `feature/msd-phase4-app`).
+
+### Added
+
+* Streamlit Databricks App `resources/msd_app.app.yml` + `src/app/` (`msd-app-dev` in dev,
+  `msd-diagnostics` in prod), running as its own service principal with six resources:
+  classifier endpoint and LLM (CAN_QUERY), SQL warehouse (CAN_USE), `defect_playbook` (SELECT),
+  `diagnosis_feedback` (MODIFY) and the `raw` volume (WRITE_VOLUME).
+* Diagnosis flow: classify (scale-to-zero aware, 300 s HTTP timeout), severity and human-review
+  rules, playbook lookup through the SQL warehouse, grounded report from the Foundation Model with
+  a source line, and the reviewed playbook entry as a fallback when the LLM is unavailable.
+* Mobile-first UI: phone-width column, app bar, **Diagnose** and **Review cases** tabs, one image
+  per analysis (upload or camera, up to 10 MB) with an explicit **Analyze image** step and
+  **New analysis** reset, result card with severity / confidence / review chips and top-3 bars,
+  Report / Playbook / Model tabs.
+* PDF report download (`lib/report_pdf.py`, fpdf2): summary, unconfirmed banner, image, report,
+  source line and disclaimer.
+* Human in the loop (`lib/feedback.py`): thumbs rating; review requests that open a case
+  (automatic for unconfirmed results, or **Send to expert review**); expert review form
+  (confirmed / corrected / inconclusive, reviewer severity, notes) that closes the case; a copy
+  of the image in `raw/reviews/<date>/`; submitter from `X-Forwarded-Email`.
+* **Review cases** tab: open and reviewed cases (newest 30 each) with image, model output and
+  report; review an open case in place.
+* `diagnosis_feedback` Delta table (ratings, review requests, expert reviews linked by
+  `case_id`), created by `03_playbook` if missing and never overwritten; columns are added
+  additively.
+* Unit tests: `tests/test_severity.py`, `tests/test_report_and_feedback.py` (19 tests).
+* Bundle variable `app_name`.
+
+### Fixed
+
+* The review-volume value is resolved by Databricks Apps as a path (`/Volumes/c/s/v`), not a
+  dotted name; both forms are now accepted (expert reviews failed with "Invalid playbook table
+  name").
+* Review reasons read back from a stored case were split into single characters.
+* Streamlit 1.50: `width="stretch"` replaces `use_container_width`.
+
 ## [1.3.0] - 2026-11-18
 
 Phase 3 - model (branch `feature/msd-phase3-model`).

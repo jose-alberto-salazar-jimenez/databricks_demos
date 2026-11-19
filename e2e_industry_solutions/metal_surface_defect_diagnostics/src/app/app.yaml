@@ -1,0 +1,27 @@
+# Metal Surface Defect Diagnostics - Streamlit Databricks App.
+# Every target-specific name comes from an app resource declared in the bundle
+# (resources/msd_app.app.yml); `valueFrom` refers to the resource `name`.
+command:
+  - streamlit
+  - run
+  - app.py
+
+env:
+  - name: CLASSIFIER_ENDPOINT
+    valueFrom: classifier-endpoint
+  - name: LLM_ENDPOINT
+    valueFrom: llm-endpoint
+  - name: DATABRICKS_WAREHOUSE_ID
+    valueFrom: sql-warehouse
+  - name: PLAYBOOK_TABLE
+    valueFrom: playbook-table
+  - name: FEEDBACK_TABLE
+    valueFrom: feedback-table
+  - name: REVIEW_VOLUME
+    valueFrom: review-volume
+  - name: CONFIDENCE_THRESHOLD
+    value: "0.70"
+  - name: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+    value: "false"
+  - name: STREAMLIT_SERVER_MAX_UPLOAD_SIZE
+    value: "10"

@@ -1,6 +1,6 @@
 # Metal Surface Defect Diagnostics - Implementation Plan
 
-Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0.
+Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0. Phase 4 (app) released in 1.4.0.
 
 ## 1. Goal
 
@@ -110,10 +110,13 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
       requirements.txt
       lib/
         classifier_client.py     # calls model serving endpoint
-        playbook.py              # playbook lookup (Delta via SQL warehouse, YAML fallback)
+        playbook.py              # SQL helper + playbook lookup (Delta via SQL warehouse)
         severity.py              # severity and human-review logic
         prompt.py                # grounded prompt construction
         llm_client.py            # calls Foundation Model API
+        report_pdf.py            # downloadable PDF report
+        feedback.py              # ratings, review cases, expert reviews
+      tests/                     # unit tests (pytest)
   README.md
   ARCHITECTURE.md
   CHANGELOG.md
@@ -129,6 +132,7 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 | `image_index` | Delta table | path, file_name, label, source_split, split (train/val/test), length |
 | `defect_playbook` | Delta table (playbook index) | One row per class: playbook_id, category, description, root causes, risk, inspection, repair, monitoring, escalation, playbook_version, approved_by |
 | `model_eval_metrics` | Delta table | Accuracy, per-class precision/recall/F1 per model version |
+| `diagnosis_feedback` | Delta table | App ratings, review requests (open cases) and expert reviews, linked by `case_id`, with a snapshot of the prediction and report |
 | `msd_defect_classifier` | UC model | Registered classifier, alias `champion` |
 
 ## 7. Grounding approach
@@ -140,12 +144,14 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 5. The report ends with a source citation (playbook id and version), and the raw playbook entry is shown in a separate "Playbook reference" tab for traceability.
 6. If confidence is below threshold or no playbook matches, the app routes to human review (banner plus explicit statement in the report).
 
-## 8. App UI (based on the provided mockup)
+## 8. App UI
 
-* Sidebar: model endpoint, LLM endpoint, confidence threshold, severity scale legend, defect class list (6).
-* Main: title and description, file uploader (PNG, JPG, JPEG, BMP, TIFF), image preview.
-* Classification card: defect type, category, confidence, severity badge, human review banner, top-3 bars, all-class probabilities expander.
-* Tabs: "AI diagnostic report" and "Playbook reference".
+The first version followed the provided mockup (sidebar, wide layout). After user testing in Phase 4 it became mobile-first:
+
+* Phone-width single column (480 px) with an app bar; no sidebar (config and disclaimer in "About this app").
+* Top-level tabs: **Diagnose** and **Review cases**.
+* Diagnose: one image per analysis (upload or camera; JPG, PNG, BMP up to 10 MB), preview, **Analyze image**, then the result card (defect, category, alternative when unconfirmed, severity, confidence and review chips, top-3 bars), an "Unconfirmed result" banner when review is required, tabs **Report / Playbook / Model**, **Download PDF report**, a thumbs rating, and an **Expert review** section (send to review, or review now). **New analysis** resets.
+* Review cases: Open and Reviewed lists; each open case shows image, model output and report next to the review form; reviewed cases show the verdict, corrected class, reviewer severity, reviewer and notes.
 
 ## 9. Phases, build steps and acceptance criteria
 
@@ -161,6 +167,8 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 | 3 Model | 7 | Serving endpoint | Endpoint READY and returns probabilities for a sample image |
 | 4 App | 8 | Streamlit app | App deployed; upload returns classification, report and playbook tabs |
 | 4 App | 10 | End-to-end test | Sample test image per class produces a grounded report consistent with its playbook entry |
+| 4 App | 11 | Mobile layout, PDF, feedback | Phone-width layout; PDF downloads; ratings and expert reviews land in `diagnosis_feedback` with an image copy in `raw/reviews/` |
+| 4 App | 12 | Review cases | Unconfirmed results open a case automatically; the case appears under Open and moves to Reviewed after an expert review |
 
 ## 10. Prerequisites (user)
 
@@ -174,7 +182,8 @@ e2e_industry_solutions/metal_surface_defect_diagnostics/
 * NEU images are steel strip defects, not in-service pipeline images; the corrosion mapping is illustrative.
 * CPU training keeps setup simple but is slower; image size and epochs are kept small.
 * The playbook is POC content and must be reviewed by integrity engineers before real use.
-* No user authentication beyond Databricks App workspace auth; no persistence of uploaded images in v1.0.
+* No user authentication beyond Databricks App workspace auth and no reviewer role: any app user can submit an expert review.
+* Uploaded images are persisted only for review cases and expert reviews (`raw/reviews/`).
 * dev and prod share one workspace and catalog in this POC.
 
 ## 11a. Check early (from the reference architecture)
