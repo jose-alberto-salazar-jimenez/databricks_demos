@@ -14,6 +14,27 @@ How to use:
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-19
+
+First prod deployment and a review-flow fix.
+
+### Fixed
+
+* **Send to expert review** recorded a verdict instead of opening a case when the user filled
+  in the "Review it now" form below it. The Diagnose tab now only requests reviews (optional
+  suspected class and note); verdicts are recorded only on the Review cases tab.
+
+### Deployed
+
+* prod: schema `metal_surface_defects`, job `msd_training` (all tasks green; model v1
+  `@champion`, test accuracy 1.00 on 180 images), endpoint `msd-defect-classifier`, app
+  `msd-diagnostics`.
+
+### Documentation
+
+* README / ARCHITECTURE: two-pass first deployment of a target, app creation needs the
+  deployer's own credentials, run bundle commands from the bundle root.
+
 ## [1.4.0] - 2026-11-19
 
 Phase 4 - app (branch `feature/msd-phase4-app`).

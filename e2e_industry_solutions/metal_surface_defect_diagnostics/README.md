@@ -81,14 +81,21 @@ metal_surface_defect_diagnostics/
 
 ## Getting started
 
-Run from this folder (the bundle root).
+Run every `databricks bundle` command from this folder (the bundle root). From another folder the
+CLI may pick up a different bundle and its workspace (for example a 403 "Invalid access token"
+from another host).
 
-1. Validate and deploy the foundation (schema and volume):
+1. Validate and deploy the foundation (schema, volume, experiment, job):
 
    ```
    databricks bundle validate --strict --target dev
    databricks bundle deploy --target dev
    ```
+
+   On a fresh target this first deploy ends with `cannot create resources.apps.msd_app ...
+   defect_playbook does not exist`. That is expected: the app's tables and serving endpoint are
+   created by the build job (step 3), not by the bundle, and the Apps API checks that they exist.
+   Everything else is created; the app is added by the deploy in step 4.
 
 2. Download the NEU zip from Kaggle and upload it, as is, to the `raw` volume (root or `zip/`)
    via Catalog Explorer > volume > Upload, or the Files API. The schema name depends on the target:
@@ -128,22 +135,31 @@ Run from this folder (the bundle root).
    exists outside the bundle, link it first with
    `databricks bundle deployment bind msd_app <app-name> --target dev`.
 
+   Creating an app needs your own user credentials (CLI or web terminal). With a delegated or
+   agent token the Apps API rejects the create with `Invalid delegation claim present in Ctx`;
+   updates and code deployments of an existing app work.
+
 5. Open the app URL (it works on a phone too) and, on **Diagnose**, upload or take one photo
    (for example from `raw/images/validation/pitted_surface/`), press **Analyze image**, and review
    the result card and the Report / Playbook / Model tabs. Then:
 
    * **Download PDF report** saves the full report.
    * Thumbs up / down rates the diagnosis.
-   * **Expert review** sends the result to the review queue or records a verdict right away
-     (confirm, correct the class, or inconclusive). Results below 70% confidence go to the
-     queue automatically (try `raw/images/validation/inclusion/inclusion_284.jpg`).
-   * **Review cases** lists open and reviewed cases; open a case to see its image and report and
-     submit the review.
+   * **Send to expert review** puts the result in the review queue, optionally with what you
+     think the defect is and a note. Results below 70% confidence go to the queue automatically.
+   * **Review cases** lists open and reviewed cases. Integrity engineers open a case to see its
+     image and report and record the verdict (confirm, correct the class, or inconclusive),
+     which moves it to Reviewed.
 
    Feedback is stored in `diagnosis_feedback` and reviewed images in `raw/reviews/<date>/`.
 
 6. Run the app unit tests (from a copy outside the workspace folder, since workspace files do not
    accept `__pycache__`): `pip install -r src/app/requirements.txt pytest`, then `pytest src/app/tests`.
+
+Prod (`--target prod`) follows the same steps with the prod volume path. Deploy prod from `main`
+after the phase is merged. Later releases need only `bundle deploy --target prod` (plus
+`bundle run msd_app --target prod` for app code changes, and `bundle run msd_training` for
+retraining).
 
 ## Configuration
 

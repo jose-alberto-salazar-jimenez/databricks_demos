@@ -1,6 +1,6 @@
 # Metal Surface Defect Diagnostics - Implementation Plan
 
-Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0. Phase 4 (app) released in 1.4.0.
+Status: Approved (v1.0.0 scope) - 2026-11-16. Phase 1 (foundation) released in 1.1.0. Phase 2 (data) released in 1.2.0. Phase 3 (model) released in 1.3.0. Phase 4 (app) released in 1.4.0; first prod deployment and review-flow fix in 1.4.1.
 
 ## 1. Goal
 
@@ -150,8 +150,8 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 
 * Phone-width single column (480 px) with an app bar; no sidebar (config and disclaimer in "About this app").
 * Top-level tabs: **Diagnose** and **Review cases**.
-* Diagnose: one image per analysis (upload or camera; JPG, PNG, BMP up to 10 MB), preview, **Analyze image**, then the result card (defect, category, alternative when unconfirmed, severity, confidence and review chips, top-3 bars), an "Unconfirmed result" banner when review is required, tabs **Report / Playbook / Model**, **Download PDF report**, a thumbs rating, and an **Expert review** section (send to review, or review now). **New analysis** resets.
-* Review cases: Open and Reviewed lists; each open case shows image, model output and report next to the review form; reviewed cases show the verdict, corrected class, reviewer severity, reviewer and notes.
+* Diagnose: one image per analysis (upload or camera; JPG, PNG, BMP up to 10 MB), preview, **Analyze image**, then the result card (defect, category, alternative when unconfirmed, severity, confidence and review chips, top-3 bars), an "Unconfirmed result" banner when review is required, tabs **Report / Playbook / Model**, **Download PDF report**, a thumbs rating, and a **Send to expert review** section (optional suspected class and note; requests only, no verdicts). **New analysis** resets.
+* Review cases: Open and Reviewed lists; each open case shows image, model output and report next to the review form (the only place a verdict is recorded); reviewed cases show the verdict, corrected class, reviewer severity, reviewer and notes.
 
 ## 9. Phases, build steps and acceptance criteria
 

@@ -242,16 +242,19 @@ Every analysis gets a `case_id`. All submissions are rows in `diagnosis_feedback
 | `feedback_type` | Created when | Effect |
 | --- | --- | --- |
 | `rating` | Thumbs up / down under the result | Usefulness signal; no case |
-| `review_request` | Automatically when human review is required, or **Send to expert review** (optional note) | Opens the case; the image is copied to `raw/reviews/<date>/<sha256-prefix>.<ext>` |
-| `expert_review` | Review form on the Diagnose tab or on an open case in **Review cases** | Closes the case with a verdict: `confirmed`, `corrected` (actual class required) or `inconclusive`, optional reviewer severity and notes |
+| `review_request` | Automatically when human review is required, or **Send to expert review** on the Diagnose tab (optional suspected class and note, stored in `notes`) | Opens the case; the image is copied to `raw/reviews/<date>/<sha256-prefix>.<ext>` |
+| `expert_review` | Review form on an open case in **Review cases** (the only place a verdict is recorded) | Closes the case with a verdict: `confirmed`, `corrected` (actual class required) or `inconclusive`, optional reviewer severity and notes |
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Open: review_request (auto or user)
-  [*] --> Reviewed: expert_review on the Diagnose tab
+  [*] --> Open: review_request (auto or Send to expert review)
   Open --> Reviewed: expert_review (Review cases tab)
   Reviewed --> [*]
 ```
+
+The Diagnose tab only requests reviews, so a request can never be recorded as a verdict by
+mistake. Expert reviews without a request (recorded from the Diagnose tab before 1.4.1) are
+listed under Reviewed as "reviewed directly".
 
 A case is open while it has a `review_request` and no `expert_review` with the same `case_id`.
 The **Review cases** tab lists Open and Reviewed cases (newest 30 each, cached 60 seconds,
@@ -415,6 +418,11 @@ App environment (`src/app/app.yaml`), resolved from the app resources in
 Targets: `dev` (development mode, default, job names prefixed and schedules paused) and `prod`
 (production mode, shared root path, owner CAN_MANAGE, `users` CAN_VIEW).
 
+First deployment of a target is two-pass: the app references `defect_playbook`,
+`diagnosis_feedback` and the classifier endpoint, which the build job creates (they are not
+bundle resources, so the deploy cannot order them before the app). Deploy, run `msd_training`,
+then deploy again to create the app.
+
 ## 9. Security and governance
 
 * Unity Catalog governs the volume, tables, registered model, serving endpoint and app access.
@@ -454,3 +462,5 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
 * With scale-to-zero, the first request after an idle period waits for the endpoint to start.
 * Anyone with access to the app can submit an expert review; there is no reviewer role yet.
 * The Review cases tab shows the newest 30 open and 30 reviewed cases, without search or paging.
+* The first deployment of a target needs two passes (see section 8), and creating the app needs
+  the deployer's own credentials.
