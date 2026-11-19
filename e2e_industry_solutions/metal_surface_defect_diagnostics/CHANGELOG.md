@@ -14,6 +14,12 @@ How to use:
 
 ## [Unreleased]
 
+### Documentation
+
+* Planned reviewer access and supervision (not built): roles (field engineer, reviewer group,
+  supervisor group), app-side or Unity Catalog-enforced checks, four-eyes sign-off for verdicts
+  that change the outcome, audit view (ARCHITECTURE 10.1, PLAN section 13 backlog).
+
 ## [1.4.1] - 2026-11-19
 
 First prod deployment and a review-flow fix.

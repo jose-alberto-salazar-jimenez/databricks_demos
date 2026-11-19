@@ -446,8 +446,57 @@ then deploy again to create the app.
   chunks when playbooks become long or multi-document.
 * Retraining from reviews: add `expert_review` images with `corrected_class` (or confirmed
   labels) to the training data and track agreement between model and reviewers over time.
-* Reviewer roles: restrict the Review cases tab and the review form to an engineers group (for
-  example by checking group membership of the forwarded user).
+* Reviewer access and supervision: see 10.1.
+
+### 10.1 Planned: reviewer access and supervision (not built)
+
+Today any app user can record a verdict, and a verdict closes the case on its own. The planned
+model separates who can request, review and approve.
+
+| Role | Members (planned account groups) | Can |
+| --- | --- | --- |
+| Field engineer | every app user (`CAN_USE` on the app) | Diagnose, download PDF, rate, send to expert review |
+| Reviewer (integrity engineer) | `msd-reviewers` | Also record verdicts on open cases |
+| Supervisor | `msd-review-supervisors` | Also approve or reject verdicts, see the audit view |
+
+Group names would be bundle variables (`reviewer_group`, `supervisor_group`).
+
+Enforcement, two options:
+
+1. **App-side check (simplest).** With user authorization's default identity scopes, the app
+   reads the signed-in user's groups from the forwarded user token. It hides the review and
+   approval forms from non-members and checks membership again before every INSERT. Writes still
+   run as the app service principal, so the app code is the gate.
+2. **Enforced by Unity Catalog (stronger).** With user authorization and the `sql` scope,
+   verdict and approval writes run as the user. Verdicts go to a separate table on which only
+   the reviewer and supervisor groups have `MODIFY`. Requests stay in `diagnosis_feedback`,
+   written by the app. This needs one-time user consent and a table split.
+
+Supervision (four eyes):
+
+* Verdicts that change the outcome need a supervisor sign-off before the case closes:
+  `corrected`, `inconclusive`, or a reviewer severity of High or Critical. Confirmed
+  low-severity verdicts close directly.
+* The supervisor records a `supervisor_approval` row (`approved` or `rejected`, with a note).
+  A rejected verdict returns the case to Open.
+* Nobody approves their own verdict. Optionally, nobody reviews their own request.
+* Only approved verdicts become training labels (see "Retraining from reviews").
+* An audit view (AI/BI dashboard) shows the open backlog, time to verdict and to approval,
+  model-reviewer agreement, and overrides per reviewer.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Open: review_request
+  Open --> Reviewed: expert_review (confirmed, low severity)
+  Open --> PendingApproval: expert_review (corrected, inconclusive, High/Critical)
+  PendingApproval --> Reviewed: supervisor_approval = approved
+  PendingApproval --> Open: supervisor_approval = rejected
+  Reviewed --> [*]
+```
+
+Data model impact is additive: one new `feedback_type` (`supervisor_approval`), reusing
+`verdict` and `notes`, and the case state derived from the latest row per `case_id`. Option 2
+adds a verdicts table.
 
 ## 11. Known limitations
 
@@ -460,7 +509,8 @@ then deploy again to create the app.
   (about 11 minutes).
 * Most remaining classifier errors are `inclusion` or `patches` predicted as `pitted_surface`.
 * With scale-to-zero, the first request after an idle period waits for the endpoint to start.
-* Anyone with access to the app can submit an expert review; there is no reviewer role yet.
+* Anyone with access to the app can submit an expert review; there is no reviewer role or
+  supervisor sign-off yet (planned, see 10.1).
 * The Review cases tab shows the newest 30 open and 30 reviewed cases, without search or paging.
 * The first deployment of a target needs two passes (see section 8), and creating the app needs
   the deployer's own credentials.

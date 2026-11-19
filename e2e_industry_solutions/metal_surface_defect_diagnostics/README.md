@@ -149,7 +149,9 @@ from another host).
      think the defect is and a note. Results below 70% confidence go to the queue automatically.
    * **Review cases** lists open and reviewed cases. Integrity engineers open a case to see its
      image and report and record the verdict (confirm, correct the class, or inconclusive),
-     which moves it to Reviewed.
+     which moves it to Reviewed. Today any app user can record a verdict; restricting verdicts
+     to an integrity-engineer group with supervisor sign-off is planned (ARCHITECTURE 10.1,
+     PLAN section 13).
 
    Feedback is stored in `diagnosis_feedback` and reviewed images in `raw/reviews/<date>/`.
 

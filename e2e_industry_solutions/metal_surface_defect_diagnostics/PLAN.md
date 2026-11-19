@@ -182,7 +182,7 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 * NEU images are steel strip defects, not in-service pipeline images; the corrosion mapping is illustrative.
 * CPU training keeps setup simple but is slower; image size and epochs are kept small.
 * The playbook is POC content and must be reviewed by integrity engineers before real use.
-* No user authentication beyond Databricks App workspace auth and no reviewer role: any app user can submit an expert review.
+* No user authentication beyond Databricks App workspace auth and no reviewer role: any app user can submit an expert review, and a verdict closes the case without supervisor sign-off (planned, see section 13).
 * Uploaded images are persisted only for review cases and expert reviews (`raw/reviews/`).
 * dev and prod share one workspace and catalog in this POC.
 
@@ -197,3 +197,11 @@ The first version followed the provided mockup (sidebar, wide layout). After use
 
 * `CHANGELOG.md` follows Keep a Changelog and Semantic Versioning.
 * Initial release `1.0.0`. New work goes under `[Unreleased]` and is promoted to a new version when the PR is merged.
+
+## 13. Backlog (documented, not built)
+
+| Item | Scope | Acceptance criteria |
+| --- | --- | --- |
+| Reviewer access | Verdicts restricted to an integrity-engineer group (`msd-reviewers`); app-side group check first, Unity Catalog-enforced writes as an option (ARCHITECTURE 10.1) | A non-member sees open cases read-only and cannot submit a verdict, also not by replaying the request; a member can |
+| Supervision (four eyes) | Supervisor group (`msd-review-supervisors`) approves or rejects verdicts that change the outcome (corrected, inconclusive, High/Critical); new `supervisor_approval` row | Such verdicts move the case to Pending approval, not Reviewed; approval closes the case, rejection reopens it; nobody approves their own verdict |
+| Review audit | AI/BI dashboard on `diagnosis_feedback` | Shows open backlog, time to verdict and to approval, model-reviewer agreement, overrides per reviewer |
