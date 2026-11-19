@@ -13,7 +13,11 @@ A field engineer uploads a photo of a metal surface to a Streamlit Databricks Ap
 Pre-written playbooks give the LLM a reviewed baseline, so it rephrases instead of inventing
 recommendations.
 
-> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0; Phase 3 (model) released in 1.3.0. See `PLAN.md`.
+The report can be downloaded as a PDF. Unconfirmed results open an **expert review case**; an
+integrity engineer confirms or corrects it in the **Review cases** tab, and every verdict is
+stored with the image as a labelled example.
+
+> Status: Phase 1 (foundation) released in 1.1.0; Phase 2 (data and playbook) released in 1.2.0; Phase 3 (model) released in 1.3.0; Phase 4 (app) released in 1.4.0. See `PLAN.md`.
 
 ## Architecture at a glance
 
@@ -24,6 +28,8 @@ flowchart LR
   APP --> MS
   APP --> PB[("Playbook index")]
   APP --> LLM["Foundation Model"]
+  APP --> FB[("diagnosis_feedback")]
+  EXP["Integrity engineer"] --> APP
 ```
 
 Details, diagrams and component descriptions: [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -111,19 +117,39 @@ Run from this folder (the bundle root).
    (creates or updates the serving endpoint for `@champion`; the first creation takes about 15
    minutes). Endpoint names: `msd-defect-classifier-dev` (dev), `msd-defect-classifier` (prod).
 
-4. Start the app (available from Phase 4):
+4. Deploy again (to attach the app resources) and start the app:
 
    ```
+   databricks bundle deploy --target dev
    databricks bundle run msd_app --target dev
    ```
 
-5. Open the app URL, upload a test image (for example from `raw/images/pitted_surface/`), and
-   review the classification card, the AI diagnostic report and the playbook reference.
+   App names: `msd-app-dev` (dev), `msd-diagnostics` (prod). If an app with that name already
+   exists outside the bundle, link it first with
+   `databricks bundle deployment bind msd_app <app-name> --target dev`.
+
+5. Open the app URL (it works on a phone too) and, on **Diagnose**, upload or take one photo
+   (for example from `raw/images/validation/pitted_surface/`), press **Analyze image**, and review
+   the result card and the Report / Playbook / Model tabs. Then:
+
+   * **Download PDF report** saves the full report.
+   * Thumbs up / down rates the diagnosis.
+   * **Expert review** sends the result to the review queue or records a verdict right away
+     (confirm, correct the class, or inconclusive). Results below 70% confidence go to the
+     queue automatically (try `raw/images/validation/inclusion/inclusion_284.jpg`).
+   * **Review cases** lists open and reviewed cases; open a case to see its image and report and
+     submit the review.
+
+   Feedback is stored in `diagnosis_feedback` and reviewed images in `raw/reviews/<date>/`.
+
+6. Run the app unit tests (from a copy outside the workspace folder, since workspace files do not
+   accept `__pycache__`): `pip install -r src/app/requirements.txt pytest`, then `pytest src/app/tests`.
 
 ## Configuration
 
 All names are bundle variables in `databricks.yml` (catalog, schema, volume, model name, serving
-endpoint, LLM endpoint, warehouse, confidence threshold). See ARCHITECTURE.md section 8.
+endpoint, LLM endpoint, warehouse, confidence threshold, app name). The app receives them as
+environment variables from its resources. See ARCHITECTURE.md section 8.
 
 ## Updating the playbook
 

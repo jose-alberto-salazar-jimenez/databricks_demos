@@ -1,0 +1,7 @@
+# The Apps runtime preinstalls an older Streamlit; the floor forces an upgrade to a release that
+# supports width="stretch" (used by st.image / st.dataframe), which replaces use_container_width.
+streamlit>=1.50
+databricks-sdk>=0.40.0
+pillow>=10.0
+# Pure-Python PDF generation for the downloadable report.
+fpdf2>=2.8

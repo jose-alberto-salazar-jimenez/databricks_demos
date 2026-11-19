@@ -13,7 +13,9 @@ Databricks (serverless). It has two planes, both governed by Unity Catalog:
   load the SME playbook index, evaluate, and publish the model to Model Serving.
 * **Serve plane** (Databricks App): a field engineer uploads a photo, the app gets the predicted
   defect class and confidence from Model Serving, retrieves the matching playbook entry, and a
-  Foundation Model writes a grounded prescription from that entry.
+  Foundation Model writes a grounded prescription from that entry. The result can be downloaded
+  as a PDF; unconfirmed results open an expert review case that an integrity engineer closes
+  with a verdict (human in the loop).
 
 Design principle: **playbooks are written up front with integrity engineers; the LLM only
 rephrases what it retrieves**, cites the source entry, and flags low confidence or no matching
@@ -36,6 +38,9 @@ flowchart LR
     MS -.->|class + score| APP
     APP -->|retrieve via SQL warehouse| PB[("Playbook index<br/>defect_playbook (Delta)")]
     APP -->|generate| LLM["Foundation Model API<br/>llama-3-3-70b-instruct"]
+    APP -->|ratings, review cases, verdicts| FB[("diagnosis_feedback<br/>(Delta)")]
+    APP -->|image copy| RV["UC Volume raw<br/>reviews/date/"]
+    EXP["Integrity engineer<br/>Review cases tab"] -->|verdict| APP
   end
   REG -->|champion| MS
   UC{{"Unity Catalog governs volumes, tables, models, endpoints, app access"}}
@@ -54,12 +59,13 @@ tables; people/input is the field engineer. Solid arrows are calls, dotted arrow
 | Ingest | Lakeflow Job task, serverless | `src/pipeline/01_ingest.ipynb` | Extract zip, Auto Loader `binaryFile` into `image_bronze`, label from folder name, stratified split into `image_index` |
 | Train | Lakeflow Job task, serverless CPU | `src/pipeline/02_train.ipynb` | Transfer learning (MobileNetV3-Small), MLflow tracking, pyfunc packaging, isolated serving-readiness check, register a new UC model version |
 | Experiment | MLflow experiment | `resources/msd.experiment.yml` | One experiment per target; training runs and evaluation artifacts |
-| Playbook load | Lakeflow Job task | `src/pipeline/03_playbook.ipynb`, `src/playbook/defect_playbook.yaml` | Validate the YAML and overwrite the `defect_playbook` Delta table |
+| Playbook load | Lakeflow Job task | `src/pipeline/03_playbook.ipynb`, `src/playbook/defect_playbook.yaml` | Validate the YAML and overwrite the `defect_playbook` Delta table; create `diagnosis_feedback` if missing (never overwritten) |
 | Evaluate | Lakeflow Job task | `src/pipeline/04_evaluate.ipynb` | Test-set accuracy, per-class metrics, confusion matrix; append `model_eval_metrics`; promotion gate sets the `champion` alias |
 | Deploy endpoint | Lakeflow Job task | `src/pipeline/05_deploy_endpoint.ipynb` | Create or update the serving endpoint pinned to the exact `champion` version; wait for READY; smoke test |
 | Classifier endpoint | Model Serving (CPU, Small, scale-to-zero) | created by task 05 | REST inference: base64 image in; `predicted_class`, `confidence`, `probabilities` out. `msd-defect-classifier` (prod), `msd-defect-classifier-dev` (dev) |
-| Web app | Databricks Apps (Streamlit) | `resources/msd_app.app.yml`, `src/app/` | Upload, result page, severity, human-review routing, report and playbook tabs |
+| Web app | Databricks Apps (Streamlit) | `resources/msd_app.app.yml`, `src/app/` | Mobile-first UI: one image per analysis, result card, report / playbook / model tabs, PDF download, rating, expert review cases |
 | Playbook index | Delta table via SQL warehouse | `defect_playbook` | Retrieval of the SME entry for the predicted class |
+| Feedback store | Delta table via SQL warehouse + UC volume | `diagnosis_feedback` (created by `03_playbook`), `raw/reviews/` | Ratings, review requests (open cases) and expert reviews, with a copy of the reviewed image |
 | LLM | Foundation Model API (pay-per-token) | `databricks-meta-llama-3-3-70b-instruct` | Rephrase the retrieved playbook entry into the diagnostic report |
 
 ## 4. Build plane
@@ -182,8 +188,16 @@ sequenceDiagram
   else no matching playbook
     A->>A: skip LLM, route to human review
   end
-  A-->>U: classification card, report tab, playbook tab
+  A->>A: build PDF report
+  opt human review required
+    A->>W: INSERT review_request (opens case) + image copy to raw/reviews/
+  end
+  A-->>U: result card, Report / Playbook / Model tabs, PDF download, rating, Expert review
 ```
+
+Nothing is sent until the user presses **Analyze image**; one image per analysis. The result is
+kept in the Streamlit session, so tab clicks and widget changes do not call the endpoints again.
+**New analysis** clears it.
 
 ### 5.2 Severity and human review
 
@@ -211,12 +225,48 @@ the content.
 
 | Module | Purpose |
 | --- | --- |
-| `app.py` | Streamlit layout: sidebar config, uploader, classification card, tabs |
+| `app.py` | Streamlit UI: Diagnose and Review cases tabs, phone-width layout (480 px column, app bar, cards), upload or camera input, result card, Report / Playbook / Model tabs, actions |
 | `lib/classifier_client.py` | Calls the serving endpoint with the Databricks SDK |
 | `lib/severity.py` | Pure functions for severity and human-review rules (unit-testable) |
-| `lib/playbook.py` | Reads `defect_playbook` through the SQL warehouse; YAML fallback |
-| `lib/prompt.py` | Builds system and user prompts |
-| `lib/llm_client.py` | Calls the Foundation Model API (OpenAI-compatible chat) |
+| `lib/playbook.py` | Shared SQL helper (`run_statement`, waits for warehouse start), table-name validation, `defect_playbook` lookup |
+| `lib/prompt.py` | System and user prompts, source line, heading normalisation, playbook entry as Markdown |
+| `lib/llm_client.py` | Calls the Foundation Model API (chat) |
+| `lib/report_pdf.py` | Builds the downloadable PDF (fpdf2): summary, review banner, image, report, source, disclaimer |
+| `lib/feedback.py` | Builds and validates feedback rows, INSERT with typed parameters, image copy to the volume, open / reviewed case queries |
+| `tests/` | Unit tests for severity, feedback records and statements, prompt helpers and PDF generation |
+
+### 5.5 Human in the loop: ratings and expert review cases
+
+Every analysis gets a `case_id`. All submissions are rows in `diagnosis_feedback`:
+
+| `feedback_type` | Created when | Effect |
+| --- | --- | --- |
+| `rating` | Thumbs up / down under the result | Usefulness signal; no case |
+| `review_request` | Automatically when human review is required, or **Send to expert review** (optional note) | Opens the case; the image is copied to `raw/reviews/<date>/<sha256-prefix>.<ext>` |
+| `expert_review` | Review form on the Diagnose tab or on an open case in **Review cases** | Closes the case with a verdict: `confirmed`, `corrected` (actual class required) or `inconclusive`, optional reviewer severity and notes |
+
+```mermaid
+stateDiagram-v2
+  [*] --> Open: review_request (auto or user)
+  [*] --> Reviewed: expert_review on the Diagnose tab
+  Open --> Reviewed: expert_review (Review cases tab)
+  Reviewed --> [*]
+```
+
+A case is open while it has a `review_request` and no `expert_review` with the same `case_id`.
+The **Review cases** tab lists Open and Reviewed cases (newest 30 each, cached 60 seconds,
+Refresh button); each case shows the image from the volume, the class probabilities and the AI
+report that the user saw. Every row stores that snapshot (prediction, severity, reasons, source
+line, report text, endpoint) plus the submitter's email from the `X-Forwarded-Email` header, so
+expert reviews form a labelled set for monitoring and retraining.
+
+### 5.6 PDF report
+
+The PDF (A4, core fonts) is built once per analysis: title bar, an orange "UNCONFIRMED - expert
+review required" banner when applicable, the image next to the summary (predicted defect,
+alternative, category, confidence, severity, human review, top classes), the report (or the
+reviewed playbook entry when the AI report is unavailable), the source line and the disclaimer.
+Text is transliterated to Latin-1 (quotes, dashes, comparison signs).
 
 ## 6. Data model
 
@@ -225,6 +275,7 @@ erDiagram
   image_bronze ||--|| image_index : "path"
   image_index }o--|| defect_playbook : "label = defect_class"
   model_eval_metrics }o--|| defect_playbook : "per-class metrics"
+  diagnosis_feedback }o--|| defect_playbook : "predicted_class = defect_class"
   image_bronze {
     string path
     timestamp modificationTime
@@ -276,12 +327,38 @@ erDiagram
     double macro_f1
     timestamp evaluated_at
   }
+  diagnosis_feedback {
+    string feedback_id
+    timestamp submitted_at
+    string submitted_by
+    string feedback_type
+    string case_id
+    string rating
+    string verdict
+    string corrected_class
+    string corrected_severity
+    string notes
+    string image_sha256
+    string image_file_name
+    string image_path
+    string predicted_class
+    double confidence
+    string probabilities
+    string severity
+    boolean human_review_required
+    string review_reasons
+    string playbook_refs
+    string classifier_endpoint
+    string report_text
+  }
 ```
 
 All objects live in `poc_metal_surface_defect_diagnostics.metal_surface_defects` together with
 the `raw` volume and the registered model `msd_defect_classifier`. `model_eval_metrics` is
 append-only: one row per evaluated model version and defect class (`accuracy` and `macro_f1`
-repeat the version-level values).
+repeat the version-level values). `diagnosis_feedback` is append-only from the app; the job
+creates it if missing and adds new columns additively (for example `case_id`), never
+overwriting rows.
 
 ## 7. Codebase structure
 
@@ -319,6 +396,21 @@ notebooks read parameters from job widgets; no hard-coded catalog or schema in c
 | `llm_endpoint` | `databricks-meta-llama-3-3-70b-instruct` | app |
 | `warehouse_id` | `b91f5b2fb518a0b7` (`demo_serverles`) | app |
 | `confidence_threshold` | `0.70` | app |
+| `app_name` | `msd-diagnostics` (`dev`: `msd-app-dev`) | app |
+
+App environment (`src/app/app.yaml`), resolved from the app resources in
+`resources/msd_app.app.yml`:
+
+| Variable | Source | Notes |
+| --- | --- | --- |
+| `CLASSIFIER_ENDPOINT` | resource `classifier-endpoint` (CAN_QUERY) | |
+| `LLM_ENDPOINT` | resource `llm-endpoint` (CAN_QUERY) | |
+| `DATABRICKS_WAREHOUSE_ID` | resource `sql-warehouse` (CAN_USE) | |
+| `PLAYBOOK_TABLE` | resource `playbook-table` (SELECT) | dotted name |
+| `FEEDBACK_TABLE` | resource `feedback-table` (MODIFY, includes SELECT) | dotted name; feedback is disabled with a notice when missing |
+| `REVIEW_VOLUME` | resource `review-volume` (WRITE_VOLUME, includes read) | resolved as a path `/Volumes/<c>/<s>/<v>`; the dotted form is accepted too |
+| `CONFIDENCE_THRESHOLD` | literal `0.70` | |
+| `STREAMLIT_SERVER_MAX_UPLOAD_SIZE` | literal `10` (MB) | |
 
 Targets: `dev` (development mode, default, job names prefixed and schedules paused) and `prod`
 (production mode, shared root path, owner CAN_MANAGE, `users` CAN_VIEW).
@@ -327,9 +419,14 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
 
 * Unity Catalog governs the volume, tables, registered model, serving endpoint and app access.
 * The app runs as its own service principal. The bundle grants it: `CAN_QUERY` on the classifier
-  endpoint and the LLM endpoint, `CAN_USE` on the SQL warehouse, and `SELECT` on
-  `defect_playbook` (plus `USE CATALOG` / `USE SCHEMA`).
-* Uploaded images are processed in memory and not persisted in v1.0.
+  endpoint and the LLM endpoint, `CAN_USE` on the SQL warehouse, `SELECT` on
+  `defect_playbook`, `MODIFY` (and `SELECT`) on `diagnosis_feedback`, and read/write on the
+  `raw` volume (plus `USE CATALOG` / `USE SCHEMA`).
+* Uploaded images are processed in memory. An image is persisted only when its case enters
+  review (automatic or requested) or an expert reviews it: a copy goes to `raw/reviews/`.
+* Feedback INSERTs use named, typed statement parameters; table and volume names are validated
+  three-part identifiers; user text is HTML-escaped before rendering.
+* The submitter is taken from the `X-Forwarded-Email` header set by Databricks Apps.
 * No secrets are stored in code; all Databricks calls use the platform-provided identity.
 
 ## 10. Extending the solution
@@ -339,7 +436,10 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
 * GPU training: change the train task compute; no code change.
 * Retrieval at scale: replace the exact-match lookup with a Vector Search index over playbook
   chunks when playbooks become long or multi-document.
-* Feedback loop: persist uploads and engineer verdicts to a Delta table for relabelling.
+* Retraining from reviews: add `expert_review` images with `corrected_class` (or confirmed
+  labels) to the training data and track agreement between model and reviewers over time.
+* Reviewer roles: restrict the Review cases tab and the review form to an engineers group (for
+  example by checking group membership of the forwarded user).
 
 ## 11. Known limitations
 
@@ -352,3 +452,5 @@ Targets: `dev` (development mode, default, job names prefixed and schedules paus
   (about 11 minutes).
 * Most remaining classifier errors are `inclusion` or `patches` predicted as `pitted_surface`.
 * With scale-to-zero, the first request after an idle period waits for the endpoint to start.
+* Anyone with access to the app can submit an expert review; there is no reviewer role yet.
+* The Review cases tab shows the newest 30 open and 30 reviewed cases, without search or paging.
