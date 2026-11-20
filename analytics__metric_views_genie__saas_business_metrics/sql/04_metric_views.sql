@@ -49,21 +49,35 @@ dimensions:
     format:
       type: date
       date_format: locale_short_month
+    synonyms:
+      - period
+      - calendar month
 
   - name: segment
     expr: segment
     comment: "Customer size segment (SMB, Mid-Market, Enterprise)."
     display_name: Customer Segment
+    synonyms:
+      - customer segment
+      - customer size
 
   - name: region
     expr: region
     comment: "Sales region of the customer (NA, EMEA, APAC, LATAM)."
     display_name: Region
+    synonyms:
+      - sales region
+      - geography
+      - geo
 
   - name: plan
     expr: plan
     comment: "Subscription plan tier (Starter, Pro, Enterprise)."
     display_name: Plan
+    synonyms:
+      - plan tier
+      - subscription plan
+      - product tier
 
 measures:
   - name: mrr
@@ -80,6 +94,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - recurring revenue
+      - monthly recurring revenue
+      - MRR balance
 
   - name: arr
     expr: MEASURE(mrr) * 12
@@ -90,6 +108,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - annual recurring revenue
+      - annual run rate
+      - run rate
 
   - name: new_mrr
     expr: SUM(new_mrr)
@@ -100,6 +122,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - new business MRR
+      - new logo MRR
+      - new customer MRR
 
   - name: expansion_mrr
     expr: SUM(expansion_mrr)
@@ -109,6 +135,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - upsell MRR
+      - expansion revenue
+      - upgrade MRR
 
   - name: contraction_mrr
     expr: SUM(contraction_mrr)
@@ -118,6 +148,9 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - downgrade MRR
+      - contraction revenue
 
   - name: churned_mrr
     expr: SUM(churned_mrr)
@@ -127,6 +160,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - lost MRR
+      - churned revenue
+      - cancelled MRR
 
   - name: net_new_mrr
     expr: MEASURE(new_mrr) + MEASURE(expansion_mrr) - MEASURE(contraction_mrr) - MEASURE(churned_mrr)
@@ -137,6 +174,10 @@ measures:
       type: currency
       currency_code: USD
       abbreviation: compact
+    synonyms:
+      - net MRR growth
+      - net new recurring revenue
+      - MRR change
 
   - name: opening_mrr_flow
     expr: SUM(opening_mrr)
@@ -159,6 +200,10 @@ measures:
       decimal_places:
         type: exact
         places: 2
+    synonyms:
+      - logo churn
+      - customer churn
+      - customer attrition
 
   - name: gross_revenue_churn_rate
     expr: "(MEASURE(churned_mrr) + MEASURE(contraction_mrr)) / NULLIF(MEASURE(opening_mrr_flow),\
@@ -171,6 +216,10 @@ measures:
       decimal_places:
         type: exact
         places: 2
+    synonyms:
+      - revenue churn
+      - MRR churn
+      - gross revenue churn
 
   - name: net_revenue_retention
     expr: "(MEASURE(opening_mrr_flow) + MEASURE(expansion_mrr) - MEASURE(contraction_mrr)\
@@ -183,6 +232,10 @@ measures:
       decimal_places:
         type: exact
         places: 2
+    synonyms:
+      - NRR
+      - net dollar retention
+      - NDR
 
   - name: mrr_prev_month
     expr: SUM(closing_mrr)
@@ -363,27 +416,47 @@ dimensions:
     expr: segment
     comment: "Customer size segment (SMB, Mid-Market, Enterprise)."
     display_name: Customer Segment
+    synonyms:
+      - customer segment
+      - customer size
 
   - name: region
     expr: region
     comment: "Sales region of the customer (NA, EMEA, APAC, LATAM)."
     display_name: Region
+    synonyms:
+      - sales region
+      - geography
+      - geo
 
   - name: plan
     expr: plan
     comment: "Subscription plan tier (Starter, Pro, Enterprise)."
     display_name: Plan
+    synonyms:
+      - plan tier
+      - subscription plan
+      - product tier
 
   - name: status
     expr: status
     comment: "active = subscription still running at snapshot date, churned = cancelled."
     display_name: Customer Status
+    synonyms:
+      - customer status
+      - account status
+      - churn status
 
 measures:
   - name: active_customers
     expr: COUNT(1) FILTER (WHERE status = 'active')
     comment: Number of customers with an active subscription at the snapshot date.
     display_name: Active Customers
+    synonyms:
+      - active accounts
+      - paying customers
+      - logos
+      - customer count
 
   - name: avg_tenure_months
     expr: AVG(tenure_months)
@@ -395,6 +468,10 @@ measures:
       decimal_places:
         type: exact
         places: 1
+    synonyms:
+      - average tenure
+      - customer lifetime
+      - average customer age
 
   - name: arpa
     expr: "SUM(current_mrr) FILTER (WHERE status = 'active') / NULLIF(MEASURE(active_customers),\
@@ -408,5 +485,9 @@ measures:
       decimal_places:
         type: exact
         places: 0
+    synonyms:
+      - average revenue per account
+      - average revenue per customer
+      - revenue per account
 $$
 ;

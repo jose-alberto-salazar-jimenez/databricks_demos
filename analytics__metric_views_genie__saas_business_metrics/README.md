@@ -108,7 +108,7 @@ A rebuild in the same calendar month reproduces the data exactly (the script is 
 All time-comparison measures were validated against independent SQL on every month x segment row (2026). `trailing 12 month inclusive` = the row month plus the 11 before it (without `inclusive` the current month is excluded).
 
 `gold.saas_customer_metrics` (on `customer_snapshot`) - dimensions `segment`, `region`, `plan`, `status`;
-measures `active_customers`, `avg_tenure_months`, `arpa`. Every dimension and measure has a comment, display name and format.
+measures `active_customers`, `avg_tenure_months`, `arpa`. Every dimension and measure has a comment, display name, format and synonyms.
 
 ### Governance and Discover
 
@@ -205,7 +205,7 @@ Lesson for the demo: benchmark answers must match the question exactly (row coun
 7. ~~**Time-intelligence measures**~~ - done: previous month, MoM %, prior year, YoY %, trailing-12-month net new MRR, churn and NRR, annualized NRR.
 8. **Customer counts over time** in the revenue metric view (`active_customers` semiadditive, `new_customers`, `churned_customers`, ARPA by month) to answer "which segments are shrinking by logos".
 9. **Cohort metric view** on `cohort_retention` (logo/revenue retention measures) so every Genie Agent answer goes through `MEASURE()`.
-10. **Synonyms in the metric view YAML** (not only in the Genie Agents) so dashboards, Genie Agents and other tools share one vocabulary.
+10. ~~**Synonyms in the metric view YAML**~~ - done: every dimension and measure (except the hidden helper `opening_mrr_flow`) has synonyms in the YAML, shared by Genie Agents, dashboards and other tools. Bare "churn" / "attrition" are deliberately not synonyms, so the Genie Agents keep treating them as ambiguous.
 11. **Billing-period and plan-change realism**: plan upgrades as a driver of expansion, annual vs monthly contracts.
 
 ### P3 - broaden the showcase
