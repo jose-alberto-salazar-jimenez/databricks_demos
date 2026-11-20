@@ -25,6 +25,9 @@ variables:
   refresh_cron:
     description: Quartz cron for the daily refresh job (paused automatically in dev)
     default: "0 0 5 * * ?" # 05:00 daily
+  refresh_pause_status:
+    description: PAUSED or UNPAUSED. Prod stays PAUSED while history backfills use the API quota
+    default: UNPAUSED
   refresh_timezone:
     description: Timezone for the daily refresh (UTC-5, no DST)
     default: America/Bogota
@@ -38,16 +41,14 @@ variables:
 targets:
   dev:
     # Personal deployment: jobs/pipelines prefixed with [dev <user>], schedules paused.
-    # dev and prod share one workspace and catalog, and development mode does not prefix
-    # volumes, so the dev volume gets an explicit per-user name to avoid colliding with prod.
+    # dev and prod share one workspace but use separate catalogs, so tables, volumes and
+    # pipelines never collide (development mode does not rename tables or volumes).
     mode: development
     default: true
     workspace:
       host: https://dbc-479a6e47-2e48.cloud.databricks.com
-    resources:
-      volumes:
-        landing:
-          name: dev_${workspace.current_user.short_name}_landing
+    variables:
+      catalog: weather_forecast_warnings_comms_dev
 
   prod:
     # Shared deployment. Today deployed by the owner; to be moved to a GitHub Actions
@@ -56,6 +57,10 @@ targets:
     workspace:
       host: https://dbc-479a6e47-2e48.cloud.databricks.com
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: weather_forecast_warnings_comms
+      # Backfill window: switch to UNPAUSED (and redeploy) after the history + recent backfills.
+      refresh_pause_status: PAUSED
     permissions:
       - user_name: ${workspace.current_user.userName}
         level: CAN_MANAGE
