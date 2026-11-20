@@ -29,6 +29,9 @@ How to use:
 
 ### Changed
 
+* Dev target uses its own catalog `weather_forecast_warnings_comms_dev` (bronze/silver/gold); the
+  dev landing volume is now `landing` there (was `dev_<user>_landing` in the prod catalog).
+* New `refresh_pause_status` variable; prod daily schedule starts PAUSED during the backfill window.
 * Forecast horizon is +/- 11 days (was 16 days ahead): daily request = yesterday + today + 11 days
   (1 Open-Meteo call per point); past 11 days built from stored runs plus a one-off backfill.
 * Ingestion notebook and job: new `past_days`, `forecast_days` and `daily_call_budget` parameters;

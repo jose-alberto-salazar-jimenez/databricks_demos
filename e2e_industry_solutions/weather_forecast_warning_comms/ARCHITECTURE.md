@@ -163,8 +163,11 @@ flowchart LR
 
 | Target | Catalog | Purpose |
 | --- | --- | --- |
-| dev | `weather_forecast_warnings_comms` (dev prefix on resources) | Development, per-user deploys |
-| prod | `weather_forecast_warnings_comms` | Scheduled daily run, shared app |
+| dev | `weather_forecast_warnings_comms_dev` (jobs prefixed `[dev <user>]`, schedules paused) | Development and tests |
+| prod | `weather_forecast_warnings_comms` (schedule via `refresh_pause_status`) | Scheduled daily run, shared app |
+
+Both targets run in one workspace; separate catalogs keep tables, volumes and pipelines apart.
+A real customer deployment would put prod in its own workspace, deployed by a service principal.
 
 Flow: feature branch -> PR (bundle validate in CI) -> merge to main -> deploy prod.
 
