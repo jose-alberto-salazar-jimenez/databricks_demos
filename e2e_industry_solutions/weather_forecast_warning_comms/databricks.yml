@@ -31,6 +31,12 @@ variables:
   refresh_timezone:
     description: Timezone for the daily refresh (UTC-5, no DST)
     default: America/Bogota
+  backfill_pause_status:
+    description: PAUSED or UNPAUSED. Daily backfill schedule, only on during a backfill window
+    default: PAUSED
+  backfill_default_mode:
+    description: Mode used by scheduled backfill runs (recent or history)
+    default: recent
   llm_endpoint:
     description: Foundation Model API endpoint for advisories
     default: databricks-qwen3-next-80b-a3b-instruct
@@ -59,8 +65,12 @@ targets:
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: weather_forecast_warnings_comms
-      # Backfill window: switch to UNPAUSED (and redeploy) after the history + recent backfills.
+      # Backfill window (history needs ~4 daily runs of 9k calls). When the backfill output shows
+      # complete=true: set backfill_pause_status PAUSED, run mode=recent once, then set
+      # refresh_pause_status UNPAUSED and redeploy.
       refresh_pause_status: PAUSED
+      backfill_pause_status: UNPAUSED
+      backfill_default_mode: history
     permissions:
       - user_name: ${workspace.current_user.userName}
         level: CAN_MANAGE
