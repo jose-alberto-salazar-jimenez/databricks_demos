@@ -28,6 +28,18 @@
           "question": [
             "How long do customers stay before they churn, by segment?"
           ]
+        },
+        {
+          "id": "c2000000000000000000000000000005",
+          "question": [
+            "What's our retention?"
+          ]
+        },
+        {
+          "id": "c2000000000000000000000000000006",
+          "question": [
+            "Which segments are shrinking?"
+          ]
         }
       ]
     },
@@ -162,6 +174,49 @@
               ]
             }
           ]
+        },
+        {
+          "identifier": "saas_demo.gold.saas_revenue_metrics",
+          "description": [
+            "Certified revenue KPIs by month, segment, region and plan. Use for NRR, revenue churn and MRR trend questions. MRR is point-in-time; rates are monthly."
+          ],
+          "column_configs": [
+            {
+              "column_name": "gross_revenue_churn_rate",
+              "synonyms": [
+                "revenue churn",
+                "MRR churn",
+                "revenue attrition"
+              ]
+            },
+            {
+              "column_name": "logo_churn_rate",
+              "synonyms": [
+                "logo churn",
+                "customer churn rate",
+                "customer attrition rate"
+              ]
+            },
+            {
+              "column_name": "mrr",
+              "synonyms": [
+                "recurring revenue",
+                "monthly recurring revenue"
+              ]
+            },
+            {
+              "column_name": "net_revenue_retention",
+              "synonyms": [
+                "NRR",
+                "net dollar retention",
+                "revenue retention"
+              ]
+            },
+            {
+              "column_name": "opening_mrr_flow",
+              "exclude": true
+            }
+          ]
         }
       ]
     },
@@ -174,7 +229,10 @@
             "* All figures are as of the end of the last complete month.\n",
             "* Average tenure includes churned customers unless you filter status; always say which population you used.\n",
             "* Cohort logo retention = customers_active / customers_start; revenue retention = mrr_now / mrr_start. Never sum across months_since_signup.\n",
-            "* Churn here means customers lost (logo churn). For revenue churn, MRR trends or NRR, point users to the Revenue and Retention agent.\n",
+            "* Churn defaults to customers lost (logo churn). When the question does not say logo or revenue, show both: logo_churn_rate and gross_revenue_churn_rate from saas_demo.gold.saas_revenue_metrics.\n",
+            "* For retention questions without a type, show both: cohort logo/revenue retention (cohort_retention) and net revenue retention (net_revenue_retention_annualized from saas_revenue_metrics).\n",
+            "* When asked which segments are shrinking, show both lenses over the last 3 complete months: net new MRR (total MRR change) and NRR (existing customers only). Point out when they disagree.\n",
+            "* Periods for rates from saas_revenue_metrics (churn, NRR): with no period, 'current' or 'this month', filter `month` to the last complete month (add_months(trunc(current_date(), 'MM'), -1)) and say which month. With an explicit period (e.g. 'last 12 months') and no 'by month' or 'trend', filter to that period and return ONE pooled rate per group - do not group by month. Never report an unfiltered all-months rate as current.\n",
             "* Company names are fictional; amounts are USD."
           ]
         }
@@ -259,6 +317,55 @@
             "WHERE `status` = 'churned'\n",
             "GROUP BY ALL\n",
             "ORDER BY `segment`"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000006",
+          "question": [
+            "What's our retention?"
+          ],
+          "sql": [
+            "WITH cohort AS (\n",
+            "  SELECT SUM(customers_active) / SUM(customers_start) AS logo_retention_12m, SUM(mrr_now) / SUM(mrr_start) AS revenue_retention_12m\n",
+            "  FROM saas_demo.gold.cohort_retention WHERE months_since_signup = 12),\n",
+            "nrr AS (\n",
+            "  SELECT MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized\n",
+            "  FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL)\n",
+            "SELECT cohort.logo_retention_12m, cohort.revenue_retention_12m, nrr.nrr_annualized FROM cohort CROSS JOIN nrr"
+          ],
+          "usage_guidance": [
+            "Retention type not specified: show 12-month cohort retention (customers and revenue) and annualized NRR together"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000007",
+          "question": [
+            "Which segments are shrinking?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`net_new_mrr`) AS net_new_mrr_3m, MEASURE(`net_revenue_retention`) AS nrr_monthly_3m\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -3)\n",
+            "GROUP BY ALL\n",
+            "ORDER BY nrr_monthly_3m ASC"
+          ],
+          "usage_guidance": [
+            "Shrinking is ambiguous: show total MRR change (net new MRR) and existing-customer retention (NRR) side by side"
+          ]
+        },
+        {
+          "id": "b3000000000000000000000000000008",
+          "question": [
+            "What's our churn?"
+          ],
+          "sql": [
+            "SELECT MEASURE(`logo_churn_rate`) AS logo_churn_rate, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn_rate\n",
+            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "WHERE `month` = add_months(trunc(current_date(), 'MM'), -1)\n",
+            "GROUP BY ALL"
+          ],
+          "usage_guidance": [
+            "Churn type not specified: show logo and revenue churn for the last complete month"
           ]
         }
       ],
@@ -345,6 +452,34 @@
     },
     "benchmarks": {
       "questions": [
+        {
+          "id": "b6000000000000000000000000000012",
+          "question": [
+            "What are logo churn and revenue churn by segment over the last 12 months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b6000000000000000000000000000011",
+          "question": [
+            "What is annualized net revenue retention by segment?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY `segment`"
+              ]
+            }
+          ]
+        },
         {
           "id": "b6000000000000000000000000000010",
           "question": [
