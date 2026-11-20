@@ -1,9 +1,8 @@
 # Discover setup - Revenue domain, subdomains and Pages
 
-Exact content of the Discover objects used in this demo, read back from the live workspace on 2026-11-18.
-Discover objects are not deployable from SQL, so recreate them in the UI (or with the Beta domains API) using
-the values below. The domain, both subdomains and all 5 Pages were reviewed and **published on 2026-11-18**;
-domain sections feature the metric views and both Genie Agents.
+Exact content of the Discover objects used in this demo (as of 2026-11-20): one domain, two subdomains and 10 Pages.
+Discover objects are not deployable from SQL, so create them in the UI (or with the Beta domains API) using
+the values below. Domain sections feature the metric views and both Genie Agents.
 
 ## Prerequisites
 
@@ -22,11 +21,14 @@ domain sections feature the metric views and both Genie Agents.
 UI steps:
 1. Discover > **Create domain** > select the existing governed tag `Revenue` > fill Subtitle and Description > **Create** (stays draft).
 2. Open **Revenue** > **Create subdomain** > **Use an existing tag** > `Revenue/RecurringRevenue` > fill fields > **Create**. Repeat for `Revenue/CustomerHealth`.
-3. **Edit Sections** to feature the metric views and both Genie Agents (RecurringRevenue: `saas_revenue_metrics` + Genie Agent "Revenue and Retention"; CustomerHealth: `saas_customer_metrics` + Genie Agent "Customer Success"). **Publish** after review (done for this demo on 2026-11-18).
+3. **Edit Sections** to feature the metric views and both Genie Agents (RecurringRevenue: `saas_revenue_metrics` + Genie Agent "Revenue and Retention"; CustomerHealth: `saas_customer_metrics` + Genie Agent "Customer Success"). **Publish** after review.
 
 Note: creating a domain through the API published it immediately (`isDraft: false`); set it back to draft if you want a review step.
 
-## 2. Pages (published, owner = demo author)
+## 2. Pages (10, owner = demo author)
+
+The Page duplicate checker flags several of these terms as overlapping because they share words (revenue, MRR, customer,
+logo, churn). They are distinct business terms; accept the flags when creating them.
 
 To publish a draft: Discover > **Pages** > **Show drafts** > open the Page > **Publish** (Page managers and curators only).
 
@@ -36,7 +38,7 @@ Each Page has a one-sentence description, synonyms, a body with the definition, 
 * **Description:** Month-end recurring subscription revenue, the core point-in-time revenue balance.
 * **Synonyms:** recurring revenue
 * **Linked assets:** `saas_demo.gold.saas_revenue_metrics`
-* **Related Pages:** ARR, Revenue churn, Net revenue retention
+* **Related Pages:** ARR, Revenue churn, Net revenue retention, MRR growth YoY
 
 ```markdown
 ## Definition
@@ -50,7 +52,7 @@ Query the `mrr` measure in `saas_demo.gold.saas_revenue_metrics`. It is semiaddi
 * **Description:** Annualized run-rate of recurring revenue derived from closing MRR.
 * **Synonyms:** annual recurring revenue
 * **Linked assets:** `saas_demo.gold.saas_revenue_metrics`
-* **Related Pages:** MRR
+* **Related Pages:** MRR, MRR growth YoY
 
 ```markdown
 ## Definition
@@ -78,7 +80,7 @@ Query the `gross_revenue_churn_rate` measure in `saas_demo.gold.saas_revenue_met
 * **Description:** How much recurring revenue the existing customer base keeps month over month, including upsell.
 * **Synonyms:** NRR, net dollar retention
 * **Linked assets:** `saas_demo.gold.saas_revenue_metrics`
-* **Related Pages:** MRR, Revenue churn
+* **Related Pages:** MRR, Revenue churn, Annualized NRR
 
 ```markdown
 ## Definition
@@ -88,11 +90,39 @@ Query the `gross_revenue_churn_rate` measure in `saas_demo.gold.saas_revenue_met
 Query the `net_revenue_retention` measure in `saas_demo.gold.saas_revenue_metrics`. It is a monthly rate; above 100% means the existing base grows even without new customers.
 ```
 
+### MRR growth YoY - subdomain RecurringRevenue
+* **Description:** Year-over-year growth of month-end recurring revenue.
+* **Synonyms:** year over year growth, YoY growth, annual MRR growth, ARR growth
+* **Linked assets:** `saas_demo.gold.saas_revenue_metrics`
+* **Related Pages:** MRR, ARR
+
+```markdown
+## Definition
+(MRR this month - MRR in the same month last year) / MRR in the same month last year. The same rate applies to ARR.
+
+## Business use
+Query the `mrr_yoy_growth` measure in `saas_demo.gold.saas_revenue_metrics`; `mrr_mom_growth` gives month-over-month growth.
+```
+
+### Annualized NRR - subdomain RecurringRevenue
+* **Description:** Trailing 12-month net revenue retention expressed as an annual rate.
+* **Synonyms:** annual NRR, annualized net revenue retention, annual net dollar retention
+* **Linked assets:** `saas_demo.gold.saas_revenue_metrics`
+* **Related Pages:** Net revenue retention
+
+```markdown
+## Definition
+The average monthly NRR over the trailing 12 months (pooled), compounded over 12 months: POWER(NRR trailing 12 months, 12). An approximation of annual NRR, not a cohort-based 12-month NRR.
+
+## Business use
+Query the `net_revenue_retention_annualized` measure in `saas_demo.gold.saas_revenue_metrics`.
+```
+
 ### Logo churn - subdomain CustomerHealth
 * **Description:** Share of customers at the start of a month who cancelled during that month.
 * **Synonyms:** customer churn, customer attrition
 * **Linked assets:** `saas_demo.gold.saas_revenue_metrics`, `saas_demo.gold.saas_customer_metrics` (both listed under Related assets in the UI)
-* **Related Pages:** none (related-Page links only work within the same subdomain, so it cannot link to Revenue churn)
+* **Related Pages:** Active customer, Cohort retention (related-Page links only work within the same subdomain, so it cannot link to Revenue churn)
 
 ```markdown
 ## Definition
@@ -102,13 +132,51 @@ Customers who cancelled in the month / customers at the start of the month.
 Query the `logo_churn_rate` measure in `saas_demo.gold.saas_revenue_metrics`. It is a monthly rate; across several months it is the pooled average monthly rate. It counts customers, not revenue - for lost revenue see Revenue churn. For current customer-base context (active customers, tenure, ARPA) use `saas_demo.gold.saas_customer_metrics`.
 ```
 
-## 3. Suggested next Pages (not yet created)
+### ARPA - subdomain CustomerHealth
+* **Description:** Average monthly recurring revenue per active customer account.
+* **Synonyms:** average revenue per account, average revenue per customer, revenue per account
+* **Linked assets:** `saas_demo.gold.saas_customer_metrics`
+* **Related Pages:** Active customer
 
-ARPA, Active customer, Cohort retention (CustomerHealth); MRR growth MoM / YoY and Annualized NRR (RecurringRevenue) - matching the time-comparison measures in `saas_revenue_metrics`.
+```markdown
+## Definition
+Current MRR of active customers / number of active customers, in USD per month, as of the end of the last complete month.
 
-## Checklist before publishing (completed 2026-11-18)
+## Business use
+Query the `arpa` measure in `saas_demo.gold.saas_customer_metrics` with `MEASURE()`.
+```
 
-- [x] Domain and both subdomains: subtitle and description reviewed
-- [x] 5 Pages reviewed (check Related assets in the UI; an API read-back may list only one linked asset per Page)
-- [x] Domain sections feature both metric views and both Genie Agents
-- [x] Publish domain, subdomains, then Pages
+### Active customer - subdomain CustomerHealth
+* **Description:** A customer account with an active, paying subscription at the snapshot date.
+* **Synonyms:** paying customer, active account, logo, customer count
+* **Linked assets:** `saas_demo.gold.saas_customer_metrics`
+* **Related Pages:** ARPA, Logo churn
+
+```markdown
+## Definition
+A customer whose subscription is active (status = active, MRR above 0) at the end of the last complete month; churned customers are excluded.
+
+## Business use
+Count with the `active_customers` measure in `saas_demo.gold.saas_customer_metrics`.
+```
+
+### Cohort retention - subdomain CustomerHealth
+* **Description:** How much of a signup-month cohort's customers and revenue remain N months after signup.
+* **Synonyms:** cohort logo retention, cohort revenue retention, retention curve
+* **Linked assets:** `saas_demo.gold.cohort_retention`
+* **Related Pages:** Logo churn
+
+```markdown
+## Definition
+For a signup-month cohort, logo retention = customers still active / customers at signup; revenue retention = cohort MRR now / cohort MRR at the end of the signup month. Never sum rows within a cohort.
+
+## Business use
+Query `saas_demo.gold.cohort_retention` filtered on `months_since_signup` (e.g. 6 or 12).
+```
+
+## Setup checklist
+
+- [ ] Domain and both subdomains created with the subtitles and descriptions above
+- [ ] 10 Pages created (check Related assets in the UI; an API read-back may list only one linked asset per Page)
+- [ ] Domain sections feature both metric views and both Genie Agents
+- [ ] Publish domain, subdomains, then Pages
