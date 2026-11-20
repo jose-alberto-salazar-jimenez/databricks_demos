@@ -1,0 +1,1008 @@
+{
+  "datasets": [
+    {
+      "name": "revenue",
+      "displayName": "Revenue metrics (certified)",
+      "asset_name": "saas_demo.gold.saas_revenue_metrics"
+    },
+    {
+      "name": "customers",
+      "displayName": "Customer metrics (certified)",
+      "asset_name": "saas_demo.gold.saas_customer_metrics"
+    },
+    {
+      "name": "cohorts",
+      "displayName": "Cohort retention",
+      "config": {
+        "version": "1.1",
+        "source": "saas_demo.gold.cohort_retention",
+        "dimensions": [
+          {
+            "name": "signup_month",
+            "expr": "signup_month"
+          },
+          {
+            "name": "months_since_signup",
+            "expr": "months_since_signup"
+          }
+        ],
+        "measures": [
+          {
+            "name": "logo_retention",
+            "expr": "SUM(customers_active) / SUM(customers_start)",
+            "comment": "Customers still active / customers at signup, pooled over the cohorts in scope.",
+            "format": {
+              "type": "percentage",
+              "decimalPlaces": {
+                "type": "exact",
+                "places": 1.0
+              }
+            }
+          },
+          {
+            "name": "revenue_retention",
+            "expr": "SUM(mrr_now) / SUM(mrr_start)",
+            "comment": "Cohort MRR now / cohort MRR at the end of the signup month, pooled over the cohorts in scope.",
+            "format": {
+              "type": "percentage",
+              "decimalPlaces": {
+                "type": "exact",
+                "places": 1.0
+              }
+            }
+          },
+          {
+            "name": "cohorts_in_scope",
+            "expr": "COUNT(DISTINCT signup_month)"
+          }
+        ]
+      }
+    }
+  ],
+  "pages": [
+    {
+      "name": "cockpit",
+      "displayName": "Revenue cockpit",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi_mrr",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "mrr",
+                      "expression": "MEASURE(`mrr`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "MRR (last complete month)",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "mrr",
+                  "displayName": "MRR",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_arr",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "arr",
+                      "expression": "MEASURE(`arr`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "ARR",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "arr",
+                  "displayName": "ARR",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_yoy",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "yoy",
+                      "expression": "MEASURE(`mrr_yoy_growth`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "MRR growth YoY",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "yoy",
+                  "displayName": "MRR growth YoY",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_nrr",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "nrr",
+                      "expression": "MEASURE(`net_revenue_retention_annualized`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "Annualized NRR",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "nrr",
+                  "displayName": "Annualized NRR",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_logo_churn",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "logo_churn",
+                      "expression": "MEASURE(`logo_churn_rate_t12m`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "Logo churn (avg monthly, T12M)",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "logo_churn",
+                  "displayName": "Logo churn",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi_active",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "customers",
+                  "fields": [
+                    {
+                      "name": "active",
+                      "expression": "MEASURE(`active_customers`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "frame": {
+                "title": "Active customers",
+                "showTitle": true
+              },
+              "encodings": {
+                "value": {
+                  "fieldName": "active",
+                  "displayName": "Active customers"
+                }
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "mrr_by_segment_trend",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "DATE_TRUNC('MONTH', `month`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    },
+                    {
+                      "name": "mrr",
+                      "expression": "MEASURE(`mrr`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "frame": {
+                "title": "MRR by segment",
+                "showTitle": true
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "mrr",
+                  "displayName": "MRR",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "mark": {
+                "layout": "stack"
+              },
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "mrr_movements",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "monthly(month)",
+                      "expression": "DATE_TRUNC(\"MONTH\", `month`)"
+                    },
+                    {
+                      "name": "measure(new_mrr)",
+                      "expression": "MEASURE(`new_mrr`)"
+                    },
+                    {
+                      "name": "measure(expansion_mrr)",
+                      "expression": "MEASURE(`expansion_mrr`)"
+                    },
+                    {
+                      "name": "measure(contraction_mrr)",
+                      "expression": "MEASURE(`contraction_mrr`)"
+                    },
+                    {
+                      "name": "measure(churned_mrr)",
+                      "expression": "MEASURE(`churned_mrr`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "MRR movements per month",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "colors": [
+                  "#2375A8",
+                  "#15AFDD",
+                  "#C89930",
+                  "#C85070"
+                ],
+                "layout": "group"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "monthly(month)",
+                  "displayName": "Month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "measure(new_mrr)",
+                      "displayName": "New"
+                    },
+                    {
+                      "fieldName": "measure(expansion_mrr)",
+                      "displayName": "Expansion"
+                    },
+                    {
+                      "fieldName": "measure(contraction_mrr)",
+                      "displayName": "Contraction"
+                    },
+                    {
+                      "fieldName": "measure(churned_mrr)",
+                      "displayName": "Churned"
+                    }
+                  ]
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 3,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "nrr_by_segment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    },
+                    {
+                      "name": "measure(net_revenue_retention_annualized)",
+                      "expression": "MEASURE(`net_revenue_retention_annualized`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "MEASURE(`net_revenue_retention_annualized`)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Annualized NRR by segment",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "annotations": [
+                {
+                  "type": "horizontal-line",
+                  "encodings": {
+                    "y": {
+                      "dataValue": "1",
+                      "dataType": "DOUBLE"
+                    },
+                    "label": {
+                      "value": "100%"
+                    }
+                  }
+                }
+              ],
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "measure-reversed",
+                      "measure": {
+                        "fieldName": "measure(net_revenue_retention_annualized)"
+                      }
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(net_revenue_retention_annualized)",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  },
+                  "displayName": "Annualized NRR",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "churn_by_segment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "revenue",
+                  "fields": [
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    },
+                    {
+                      "name": "measure(logo_churn_rate_t12m)",
+                      "expression": "MEASURE(`logo_churn_rate_t12m`)"
+                    },
+                    {
+                      "name": "measure(gross_revenue_churn_rate_t12m)",
+                      "expression": "MEASURE(`gross_revenue_churn_rate_t12m`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Logo vs revenue churn by segment (avg monthly, T12M)",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "mark": {
+                "colors": [
+                  "#8E6BBF",
+                  "#C85070"
+                ],
+                "layout": "group"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "measure(logo_churn_rate_t12m)",
+                      "displayName": "Logo churn"
+                    },
+                    {
+                      "fieldName": "measure(gross_revenue_churn_rate_t12m)",
+                      "displayName": "Revenue churn"
+                    }
+                  ]
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 9,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "arpa_by_segment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "customers",
+                  "fields": [
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    },
+                    {
+                      "name": "measure(arpa)",
+                      "expression": "MEASURE(`arpa`)"
+                    }
+                  ],
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "DESC",
+                      "expression": "MEASURE(`arpa`)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "ARPA by segment",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "measure-reversed",
+                      "measure": {
+                        "fieldName": "measure(arpa)"
+                      }
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(arpa)",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 0
+                    }
+                  },
+                  "displayName": "ARPA (USD / month)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 9,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "cohort_curve",
+            "queries": [
+              {
+                "name": "main",
+                "query": {
+                  "datasetName": "cohorts",
+                  "fields": [
+                    {
+                      "name": "months_since_signup",
+                      "expression": "`months_since_signup`"
+                    },
+                    {
+                      "name": "logo_retention",
+                      "expression": "MEASURE(`logo_retention`)"
+                    },
+                    {
+                      "name": "revenue_retention",
+                      "expression": "MEASURE(`revenue_retention`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`months_since_signup` IN (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "frame": {
+                "title": "Cohort retention, first 12 months (signup cohorts pooled)",
+                "showTitle": true
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "months_since_signup",
+                  "displayName": "Months since signup",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "logo_retention",
+                      "displayName": "Customers retained"
+                    },
+                    {
+                      "fieldName": "revenue_retention",
+                      "displayName": "Revenue retained"
+                    }
+                  ]
+                }
+              },
+              "annotations": [
+                {
+                  "type": "horizontal-line",
+                  "encodings": {
+                    "y": {
+                      "dataValue": "1",
+                      "dataType": "DOUBLE"
+                    },
+                    "label": {
+                      "value": "100%"
+                    }
+                  }
+                }
+              ],
+              "data": {
+                "queryName": "main"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#EBEBEB",
+        "dark": "#08141A"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FCFCFD",
+        "dark": "#13222B"
+      },
+      "widgetBorderColor": {
+        "light": "#FCFCFD",
+        "dark": "#13222B"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#4DA3E8"
+      },
+      "visualizationColors": [
+        "#2375A8",
+        "#15AFDD",
+        "#C89930",
+        "#C85070",
+        "#8E6BBF",
+        "#52A870"
+      ],
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED",
+      "widgetCornerRadius": 8,
+      "fontSettings": {
+        "base": {
+          "fontColor": {
+            "light": "#08141A",
+            "dark": "#EBEBEB"
+          }
+        }
+      },
+      "gridLineColor": {
+        "light": "#E3E6E8",
+        "dark": "#24343E"
+      },
+      "visualizationColorMappings": [
+        {
+          "value": "Enterprise",
+          "color": "#2375A8"
+        },
+        {
+          "value": "Mid-Market",
+          "color": "#15AFDD"
+        },
+        {
+          "value": "SMB",
+          "color": "#C89930"
+        },
+        {
+          "value": "New",
+          "color": "#2375A8"
+        },
+        {
+          "value": "Expansion",
+          "color": "#15AFDD"
+        },
+        {
+          "value": "Contraction",
+          "color": "#C89930"
+        },
+        {
+          "value": "Churned",
+          "color": "#C85070"
+        },
+        {
+          "value": "Logo churn",
+          "color": "#8E6BBF"
+        },
+        {
+          "value": "Revenue churn",
+          "color": "#C85070"
+        },
+        {
+          "value": "Customers retained",
+          "color": "#2375A8"
+        },
+        {
+          "value": "Revenue retained",
+          "color": "#15AFDD"
+        }
+      ]
+    },
+    "genieSpace": {
+      "overrideId": "01f1e2d7ebe61343b221c464abf2b20f",
+      "enablementMode": "ENABLED"
+    },
+    "applyModeEnabled": false
+  }
+}
