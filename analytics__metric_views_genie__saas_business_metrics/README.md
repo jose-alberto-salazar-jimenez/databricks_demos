@@ -130,12 +130,12 @@ Note: creating a domain through the API published it immediately; set it back to
 | | Revenue and Retention | Customer Success |
 | --- | --- | --- |
 | Audience | Finance, RevOps | Customer success managers |
-| Data | `saas_revenue_metrics`, `mrr_monthly` | `saas_customer_metrics`, `customer_snapshot`, `cohort_retention` |
-| Starter questions | What's our churn? / How is MRR growing MoM and YoY? / Which segments are shrinking? / MRR and ARR by segment / Annualized NRR by segment | Enterprise accounts churned in 6 months / 6-month cohort retention / Active customers and ARPA by segment / Tenure before churn |
-| Example SQL | 7 (one with `:month` DATE, MoM/YoY growth, shrinking segments with both lenses) | 5 (one with `:segment` STRING) |
+| Data | `saas_revenue_metrics`, `mrr_monthly` | `saas_customer_metrics`, `customer_snapshot`, `cohort_retention`, `saas_revenue_metrics` (for NRR, revenue churn, shrinking segments) |
+| Starter questions | What's our churn? / How is MRR growing MoM and YoY? / Which segments are shrinking? / MRR and ARR by segment / Annualized NRR by segment | Enterprise accounts churned in 6 months / 6-month cohort retention / Active customers and ARPA by segment / Tenure before churn / What's our retention? / Which segments are shrinking? |
+| Example SQL | 7 (one with `:month` DATE, MoM/YoY growth, shrinking segments with both lenses) | 8 (one with `:segment` STRING; churn, retention and shrinking with both lenses) |
 | SQL expressions | active customer, churned customer, enterprise segment, last complete month, quarter | active customer, churned customer (synonym attrition), enterprise segment, churned recently, tenure band, cohort logo retention |
-| Benchmarks | 12 (incl. alternate phrasings and time comparisons) | 10 (incl. alternate phrasings) |
-| Key instructions | "When asked about churn without saying logo or revenue, ask which one, or show both." Same for "shrinking": show net new MRR and NRR over 3 months | Churn here = logo churn; revenue questions go to the other agent |
+| Benchmarks | 12 (incl. alternate phrasings and time comparisons) | 12 (incl. alternate phrasings, NRR and churn) |
+| Key instructions | "When asked about churn without saying logo or revenue, ask which one, or show both." Same for "shrinking": show net new MRR and NRR over 3 months | Churn defaults to logo churn but shows both when unspecified; retention shows cohort retention and NRR; monthly rates use the last complete month | Churn here = logo churn; revenue questions go to the other agent |
 
 ## Deploy (fresh workspace)
 
@@ -168,6 +168,7 @@ Note: creating a domain through the API published it immediately; set it back to
 | After fixes + 3 alternate phrasings each | 10/10 | 10/10 | Re-run after the opening-book data change |
 | After time-comparison measures (+2 questions on Revenue) | 11/12, then 12/12 | - | YoY question reworded to "current ... latest month vs same month last year"; the Genie Agent had (reasonably) returned the 12-month YoY trend |
 | After new starter questions + "shrinking" instruction (Revenue) | 12/12 | - | Starter questions also asked live via the Genie Agent API; "What's our churn?" showed both rates, "Which segments are shrinking?" showed both lenses |
+| Customer Success gets `saas_revenue_metrics` (+2 benchmarks) | - | 12/12, then 11/12, then 12/12 | Live check caught "What's our churn?" reporting an all-months rate as current. A last-complete-month rule fixed it but made "churn over the last 12 months" group by month (11/12); rewording the rule (explicit period = one pooled rate per group) restored 12/12 |
 
 Lesson for the demo: benchmark answers must match the question exactly (row count, period, columns), otherwise correct Genie Agent answers are scored as wrong.
 
