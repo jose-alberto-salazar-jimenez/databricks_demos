@@ -12,6 +12,8 @@ How to use:
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-20
+
 ### Added
 
 * Phase 2 ingestion: `src/ingestion/ingest_sources` notebook landing Natural Earth boundaries,
