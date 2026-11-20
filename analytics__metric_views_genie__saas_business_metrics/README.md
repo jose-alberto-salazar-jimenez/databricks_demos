@@ -55,8 +55,8 @@ flowchart LR
 | `sql/07_validation.sql` | Row counts, MRR reconciliation, semiadditive check, realism check |
 | `sql/08_column_comments.sql` | Business comments for every silver table and gold MV column (applied) |
 | `genie/*.json` | Exact exported configuration of both Genie Agents |
-| `dashboards/SaaS Revenue Cockpit.lvdash.json` | AI/BI dashboard on the certified metric views (import it into a workspace folder) |
-| `scripts/deploy_governance_and_genie.py` | Creates governed tags, Genie Agents and their tags via REST |
+| `dashboards/SaaS Revenue Cockpit.lvdash.json` | AI/BI dashboard on the certified metric views (created by the deploy script) |
+| `scripts/deploy_governance_and_genie.py` | Creates governed tags, both Genie Agents and the AI/BI dashboard (Ask Genie pointed at the new Revenue and Retention agent), and their domain and certification tags, via REST |
 | `scripts/rebuild_silver.py`, `sql/09_refresh_gold.sql`, `scripts/restore_metadata_and_validate.py` | Monthly job (3 tasks): rebuild silver (serverless), refresh gold MVs + legacy table (SQL warehouse), restore comments and tags + validate (serverless) |
 | `docs/question_bank.md` | 20 validated business questions with SQL (6 deliberately ambiguous) |
 | `docs/discover_setup.md` | Exact Discover domain, subdomain and Page content, with UI steps |
@@ -155,7 +155,7 @@ One page on the certified metric views (no measure is redefined in the dashboard
 1. Serverless SQL warehouse; permissions: CREATE CATALOG (or an existing catalog), create governed tags, ASSIGN on those tags.
 2. Run `sql/01` to `sql/06` in order (run `02_silver.sql` in one session; run each metric view statement in `04` separately).
 3. Run `sql/08_column_comments.sql`, then `sql/07_validation.sql` - all reconciliation checks must be 0.
-4. Run `scripts/deploy_governance_and_genie.py` (set `WAREHOUSE_ID` and `PARENT_PATH`).
+4. Run `scripts/deploy_governance_and_genie.py` (set `WAREHOUSE_ID` and `PARENT_PATH`). It creates the governed tags, both Genie Agents and the SaaS Revenue Cockpit dashboard (as a draft, with Ask Genie pointed at the new Revenue and Retention agent), and tags all three with their subdomain and certification. Publish the dashboard after review.
 5. Create the Discover domain/subdomains and Pages (UI), review, then publish.
 6. Keep the demo current with a monthly Lakeflow Job (git source = this repo on `main`, 1st of each month), 3 tasks in sequence:
    `rebuild_silver` (python file `scripts/rebuild_silver.py`, serverless) -> `refresh_gold` (SQL file `sql/09_refresh_gold.sql`,
