@@ -2,7 +2,7 @@
 
 **SaaS business metrics - Unity Catalog metric views (semantic layer) + Genie Agents**
 
-> **Features as of: 2026-Nov-18.** Built and validated on Azure Databricks with the product features, names and syntax available on this date: Unity Catalog metric views (YAML v1.1, window measures), Genie Agents (benchmarks API), governed tags and certification, Discover domains and Pages (Beta). Later releases may change syntax, UI or product names.
+> **Features as of: 2026-Nov-20.** Built and validated on Azure Databricks with the product features, names and syntax available on this date: Unity Catalog metric views (YAML v1.1, window measures), Genie Agents (benchmarks API), AI/BI dashboards, governed tags and certification, Discover domains and Pages (Beta). Later releases may change syntax, UI or product names.
 
 An end-to-end, fully synthetic subscription (SaaS) analytics demo on Azure Databricks that shows how a
 **governed semantic layer** (Unity Catalog metric views) makes **Genie Agent** answers consistent and trustworthy,
@@ -38,7 +38,8 @@ flowchart LR
   RV --> G1[Genie Agent: Revenue and Retention]
   M --> G1
   CV & CS & CR --> G2[Genie Agent: Customer Success]
-  RV & CV -.-> D[Discover: Revenue domain<br/>RecurringRevenue / CustomerHealth<br/>5 Pages]
+  RV & CV & CR --> DB[AI/BI dashboard:<br/>SaaS Revenue Cockpit]
+  RV & CV -.-> D[Discover: Revenue domain<br/>RecurringRevenue / CustomerHealth<br/>10 Pages]
 ```
 
 ## Repository layout
@@ -54,6 +55,7 @@ flowchart LR
 | `sql/07_validation.sql` | Row counts, MRR reconciliation, semiadditive check, realism check |
 | `sql/08_column_comments.sql` | Business comments for every silver table and gold MV column (applied) |
 | `genie/*.json` | Exact exported configuration of both Genie Agents |
+| `dashboards/SaaS Revenue Cockpit.lvdash.json` | AI/BI dashboard on the certified metric views (import it into a workspace folder) |
 | `scripts/deploy_governance_and_genie.py` | Creates governed tags, Genie Agents and their tags via REST |
 | `scripts/rebuild_silver.py`, `sql/09_refresh_gold.sql`, `scripts/restore_metadata_and_validate.py` | Monthly job (3 tasks): rebuild silver (serverless), refresh gold MVs + legacy table (SQL warehouse), restore comments and tags + validate (serverless) |
 | `docs/question_bank.md` | 20 validated business questions with SQL (6 deliberately ambiguous) |
@@ -113,13 +115,13 @@ measures `active_customers`, `avg_tenure_months`, `arpa`. Every dimension and me
 ### Governance and Discover
 
 * Governed tags (account level): `Revenue`, `Revenue/RecurringRevenue`, `Revenue/CustomerHealth` (key-only).
-* `Revenue/RecurringRevenue`: `mrr_monthly`, `saas_revenue_metrics`, Genie Agent "Revenue and Retention".
-* `Revenue/CustomerHealth`: `customer_snapshot`, `cohort_retention`, `saas_customer_metrics`, Genie Agent "Customer Success".
-* Certified: all 5 gold objects + both Genie Agents. Deprecated: `silver.mrr_report_v1` (with a deprecation comment pointing to the metric view).
-* Discover: domain **Revenue** with subdomains **RecurringRevenue** and **CustomerHealth** - all **draft**.
-* Pages (draft): MRR, ARR, Revenue churn, Net revenue retention (RecurringRevenue); Logo churn (CustomerHealth), linked to the metric views.
+* `Revenue/RecurringRevenue`: `mrr_monthly`, `saas_revenue_metrics`, Genie Agent "Revenue and Retention", dashboard "SaaS Revenue Cockpit".
+* `Revenue/CustomerHealth`: `customer_snapshot`, `cohort_retention`, `saas_customer_metrics`, Genie Agent "Customer Success", dashboard "SaaS Revenue Cockpit" (it spans both subdomains).
+* Certified: all 5 gold objects, both Genie Agents and the dashboard. Deprecated: `silver.mrr_report_v1` (with a deprecation comment pointing to the metric view).
+* Discover: domain **Revenue** with subdomains **RecurringRevenue** and **CustomerHealth** (published).
+* Pages (created as drafts, published after review): MRR, ARR, Revenue churn, Net revenue retention, MRR growth YoY, Annualized NRR (RecurringRevenue); Logo churn, ARPA, Active customer, Cohort retention (CustomerHealth), linked to the metric views and `cohort_retention`.
 
-Full Discover content (domain, subdomains, all 5 Pages with exact text): see [`docs/discover_setup.md`](docs/discover_setup.md).
+Full Discover content (domain, subdomains, all 10 Pages with exact text): see [`docs/discover_setup.md`](docs/discover_setup.md).
 
 Discover setup (UI; the domains API is Beta): Discover > Create domain > existing tag `Revenue` > subtitle/description > Create.
 Open Revenue > Create subdomain > Use an existing tag > `Revenue/RecurringRevenue` (repeat for `Revenue/CustomerHealth`).
@@ -135,7 +137,18 @@ Note: creating a domain through the API published it immediately; set it back to
 | Example SQL | 7 (one with `:month` DATE, MoM/YoY growth, shrinking segments with both lenses) | 8 (one with `:segment` STRING; churn, retention and shrinking with both lenses) |
 | SQL expressions | active customer, churned customer, enterprise segment, last complete month, quarter | active customer, churned customer (synonym attrition), enterprise segment, churned recently, tenure band, cohort logo retention |
 | Benchmarks | 12 (incl. alternate phrasings and time comparisons) | 12 (incl. alternate phrasings, NRR and churn) |
-| Key instructions | "When asked about churn without saying logo or revenue, ask which one, or show both." Same for "shrinking": show net new MRR and NRR over 3 months | Churn defaults to logo churn but shows both when unspecified; retention shows cohort retention and NRR; monthly rates use the last complete month | Churn here = logo churn; revenue questions go to the other agent |
+| Instruction structure | Same 9 sections in both: Role, Business context (segments, plans, regions, data window), Data sources, Routing (which questions go to the other agent), Metric definitions, Time periods, Ambiguous questions, SQL guardrails, Answer style | Same 9 sections |
+| Key instructions | Churn without "logo" or "revenue" shows both rates; "shrinking" shows net new MRR and NRR over 3 months; never SUM MRR across months | Churn defaults to logo churn but shows both when unspecified; retention shows cohort retention and NRR; monthly rates use the last complete month |
+
+### AI/BI dashboard: SaaS Revenue Cockpit
+
+One page on the certified metric views (no measure is redefined in the dashboard):
+
+* KPI counters: MRR (last complete month), ARR, MRR growth YoY, annualized NRR, logo churn (avg monthly, T12M), active customers.
+* Charts: MRR by segment (stacked area), MRR movements per month (new / expansion / contraction / churned), annualized NRR by segment (100% reference line), logo vs revenue churn by segment, ARPA by segment, and a 12-month cohort retention curve (customers vs revenue retained).
+* Datasets: `saas_revenue_metrics` and `saas_customer_metrics` imported as metric views, plus a dashboard-local metric view over `cohort_retention`. The cohort curve stops at 12 months because later months have too few cohorts to be representative.
+* Theme: one color-blind-safe palette with fixed meanings on every chart - segments (Enterprise deep blue, Mid-Market sky blue, SMB amber), revenue gained in blues, revenue lost in warm tones (amber, rose), never red next to green; neutral backgrounds in light and dark mode.
+* Ask Genie uses the "Revenue and Retention" Genie Agent. Tagged `Revenue/RecurringRevenue` and `Revenue/CustomerHealth` and certified, so it appears in both Discover subdomains.
 
 ## Deploy (fresh workspace)
 
@@ -168,6 +181,7 @@ Note: creating a domain through the API published it immediately; set it back to
 | After fixes + 3 alternate phrasings each | 10/10 | 10/10 | Re-run after the opening-book data change |
 | After time-comparison measures (+2 questions on Revenue) | 11/12, then 12/12 | - | YoY question reworded to "current ... latest month vs same month last year"; the Genie Agent had (reasonably) returned the 12-month YoY trend |
 | After new starter questions + "shrinking" instruction (Revenue) | 12/12 | - | Starter questions also asked live via the Genie Agent API; "What's our churn?" showed both rates, "Which segments are shrinking?" showed both lenses |
+| Restructured instructions (same 9 sections in both, business context, routing, SQL guardrails) | 12/12 | 12/12 | Key questions (churn, shrinking, retention, growth) also re-asked live with identical results |
 | Customer Success gets `saas_revenue_metrics` (+2 benchmarks) | - | 12/12, then 11/12, then 12/12 | Live check caught "What's our churn?" reporting an all-months rate as current. A last-complete-month rule fixed it but made "churn over the last 12 months" group by month (11/12); rewording the rule (explicit period = one pooled rate per group) restored 12/12 |
 
 Lesson for the demo: benchmark answers must match the question exactly (row count, period, columns), otherwise correct Genie Agent answers are scored as wrong.
@@ -180,7 +194,8 @@ Lesson for the demo: benchmark answers must match the question exactly (row coun
 4. **Genie Agent - Finance**: "What's our MRR by segment?", "What's our churn?" (the Genie Agent asks or shows both), "What is NRR by segment?".
 5. **Genie Agent - Customer Success**: "Which Enterprise accounts churned recently?", "6-month retention by cohort".
 6. **Insight**: "Which segments are shrinking?" - total MRR grows everywhere, but SMB NRR < 100%.
-7. **Trust**: show benchmarks and the certification badges.
+7. **Dashboard**: open the SaaS Revenue Cockpit - the same certified numbers as the Genie Agents, SMB below the 100% NRR line, and the cohort curve (customers fall to ~72% after 12 months while revenue stays near 100%). Use Ask Genie for a follow-up question.
+8. **Trust**: show benchmarks and the certification badges.
 
 ## Known limitations
 
@@ -188,7 +203,7 @@ Lesson for the demo: benchmark answers must match the question exactly (row coun
 * One plan per customer (expansion = seats); some Enterprise accounts sit at the $12,000 cap.
 * Opening-book history before the window is collapsed into one 'new' event per customer.
 * Cohort retention is not in a metric view, so the Customer Success agent queries that table directly.
-* Discover domain, subdomains and Pages are still drafts (publishing is a deliberate review step).
+* Discover Pages are created as drafts; publishing them is a deliberate review step.
 * Gold MV column comments are lost on CREATE OR REPLACE: re-run `sql/08` after rebuilding (a column list with COMMENT in CREATE MATERIALIZED VIEW is ignored).
 
 ## Proposed improvements
@@ -199,7 +214,7 @@ Lesson for the demo: benchmark answers must match the question exactly (row coun
 3. ~~Run both Genie Agent benchmark sets~~ - done; 3 misses were benchmark-definition issues, fixed, alternate phrasings added (see Benchmark history).
 4. ~~Add an opening customer base~~ - done: 305 customers with $502K MRR at window start; YoY growth now +77% instead of +169%.
 5. ~~Delete the orphan `domain` governed tag~~ - done (no uses found).
-6. **Open:** review and publish the domain, subdomains and Pages; add both Genie Agents and the metric views to the domain page sections (UI).
+6. **Open:** publish the 10 Pages; add both Genie Agents, the metric views and the dashboard to the domain page sections (UI).
 
 ### P2 - deepen the semantic layer
 7. ~~**Time-intelligence measures**~~ - done: previous month, MoM %, prior year, YoY %, trailing-12-month net new MRR, churn and NRR, annualized NRR.
@@ -209,9 +224,9 @@ Lesson for the demo: benchmark answers must match the question exactly (row coun
 11. **Billing-period and plan-change realism**: plan upgrades as a driver of expansion, annual vs monthly contracts.
 
 ### P3 - broaden the showcase
-12. **AI/BI dashboard** "Revenue cockpit" on the metric views, tagged into the domain.
+12. ~~**AI/BI dashboard** "Revenue cockpit" on the metric views, tagged into the domain~~ - done: "SaaS Revenue Cockpit" (see above).
 13. **ABAC**: row filter by region using a governed tag, and a mask on `company_name`, to show governance flowing into the Genie Agents.
 14. **Lineage walkthrough**: silver -> gold MV -> metric view -> Genie Agent/dashboard in Catalog Explorer.
 15. **Data quality monitoring** on the gold MVs (freshness, reconciliation as an alert).
 16. **Packaging as a Declarative Automation Bundle** (SQL tasks + monthly refresh job + Genie Agent deployment) with the catalog name as a variable, so the demo can be stood up per customer in minutes.
-17. **Cross-agent experience**: add the revenue metric view to the Customer Success agent (still <= 5 objects) or expose both agents through Genie One so ambiguous retention questions can be answered in one place.
+17. **Cross-agent experience**: ~~add the revenue metric view to the Customer Success agent~~ (done, 4 objects); next, expose both agents through Genie One so ambiguous retention questions can be answered in one place.
