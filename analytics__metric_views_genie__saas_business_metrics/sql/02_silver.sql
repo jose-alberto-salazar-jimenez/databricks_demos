@@ -4,6 +4,10 @@
 -- About 3/8 of customers are an OPENING BOOK: they signed up in the 36 months before the window.
 -- Their 'new' event is dated at the real signup date (before the window) with their MRR at window start,
 -- churn / expansion / contraction are simulated only inside the window.
+-- CURRENT MONTH TO DATE: the data also covers the current calendar month up to yesterday (cutoff), for the
+-- daily view. Existing customers get their current-month events, and a pool of 30 customers (ids 801-830)
+-- signs up on a fixed day of the current month. Events after the cutoff are not generated, so each daily
+-- rebuild only adds days and never changes earlier ones. The monthly gold views use complete months only.
 -- Run all statements in ONE session (temporary function and views are session-scoped).
 
 CREATE OR REPLACE TEMPORARY FUNCTION u(salt STRING, k STRING) RETURNS DOUBLE
@@ -17,11 +21,13 @@ SELECT * FROM VALUES
  ('PLN-ENT-A','Enterprise','annual') AS t(plan_id, plan_name, billing_period);
 
 CREATE OR REPLACE TABLE saas_demo.silver.customers
-COMMENT 'Synthetic customers (fake names, no personal data). ~3/8 signed up before the 24-month window (opening book), the rest inside it.' AS
+COMMENT 'Synthetic customers (fake names, no personal data). ~3/8 signed up before the 24-month window (opening book), the rest inside it. Ids above 800 sign up in the current month (up to yesterday).' AS
 WITH b AS (
-  SELECT add_months(trunc(current_date(),'MM'), -24) AS ws, date_sub(trunc(current_date(),'MM'), 1) AS we
-), ids AS (SELECT id, (id*389) % 1000 AS nidx, format_string('CUST-%05d', id) AS customer_id FROM range(1, 801) AS r(id))
-SELECT
+  SELECT add_months(trunc(current_date(),'MM'), -24) AS ws, date_sub(trunc(current_date(),'MM'), 1) AS we,
+         trunc(current_date(),'MM') AS cm, date_sub(current_date(), 1) AS cutoff
+), ids AS (SELECT id, (id*389) % 1000 AS nidx, format_string('CUST-%05d', id) AS customer_id FROM range(1, 831) AS r(id)),
+c AS (
+SELECT id,
   customer_id,
   concat_ws(' ',
     element_at(array('Amber','Birch','Cobalt','Dune','Ember','Fjord','Granite','Harbor','Indigo','Juniper','Kestrel','Lumen','Maple','Nova','Onyx','Pine','Quill','Ridge','Sable','Tundra','Umber','Vela','Willow','Xylo','Yarrow','Zephyr','Aster','Basalt','Cedar','Drift','Ferro','Glacier','Halcyon','Iris','Jade','Krona','Lark','Mosaic','Nimbus','Orchid'),
@@ -33,17 +39,24 @@ SELECT
   CASE WHEN u('seg', customer_id) < 0.55 THEN 'SMB' WHEN u('seg', customer_id) < 0.85 THEN 'Mid-Market' ELSE 'Enterprise' END AS segment,
   CASE WHEN u('reg', customer_id) < 0.45 THEN 'NA' WHEN u('reg', customer_id) < 0.75 THEN 'EMEA'
        WHEN u('reg', customer_id) < 0.90 THEN 'APAC' ELSE 'LATAM' END AS region,
-  CASE WHEN u('pre', customer_id) < 0.375
+  CASE WHEN id > 800
+       THEN date_add(b.cm, cast(floor(u('sig', customer_id) * day(last_day(b.cm))) AS INT))
+       WHEN u('pre', customer_id) < 0.375
        THEN date_sub(b.ws, 1 + cast(floor(u('sig', customer_id) * 1095) AS INT))
-       ELSE date_add(b.ws, cast(floor((0.5*u('sig', customer_id) + 0.5*sqrt(u('sig', customer_id))) * (datediff(b.we, b.ws)+1)) AS INT)) END AS signup_date
-FROM ids CROSS JOIN b;
+       ELSE date_add(b.ws, cast(floor((0.5*u('sig', customer_id) + 0.5*sqrt(u('sig', customer_id))) * (datediff(b.we, b.ws)+1)) AS INT)) END AS signup_date,
+  b.cutoff
+FROM ids CROSS JOIN b
+)
+SELECT customer_id, company_name, segment, region, signup_date FROM c
+WHERE id <= 800 OR signup_date <= cutoff;
 
 -- Customer x month simulation (k = 0 is the signup event, k >= 1 are window months).
 -- Tuned so that blended monthly logo churn is ~2% and annualized NRR is 100-110%.
 CREATE OR REPLACE TEMPORARY VIEW sim_base AS
-WITH b AS (SELECT date_sub(trunc(current_date(),'MM'), 1) AS we, add_months(trunc(current_date(),'MM'), -24) AS ws),
+WITH b AS (SELECT date_sub(trunc(current_date(),'MM'), 1) AS we, add_months(trunc(current_date(),'MM'), -24) AS ws,
+                  date_sub(current_date(), 1) AS cutoff),
 c AS (
-  SELECT c.*,
+  SELECT c.*, b.cutoff,
     CASE c.segment
       WHEN 'SMB'        THEN CASE WHEN u('pl', customer_id) < 0.80 THEN 'Starter' ELSE 'Pro' END
       WHEN 'Mid-Market' THEN CASE WHEN u('pl', customer_id) < 0.20 THEN 'Starter' WHEN u('pl', customer_id) < 0.85 THEN 'Pro' ELSE 'Enterprise' END
@@ -52,8 +65,8 @@ c AS (
     CASE c.segment WHEN 'SMB' THEN 0.060 WHEN 'Mid-Market' THEN 0.090 ELSE 0.100 END AS p_exp,
     0.03 AS p_con,
     c.signup_date < b.ws AS is_pre, b.ws,
-    CASE WHEN c.signup_date < b.ws THEN CAST(months_between(trunc(b.we,'MM'), b.ws) AS INT) + 1
-         ELSE CAST(months_between(trunc(b.we,'MM'), trunc(c.signup_date,'MM')) AS INT) END AS max_k
+    CASE WHEN c.signup_date < b.ws THEN CAST(months_between(trunc(b.cutoff,'MM'), b.ws) AS INT) + 1
+         ELSE CAST(months_between(trunc(b.cutoff,'MM'), trunc(c.signup_date,'MM')) AS INT) END AS max_k
   FROM saas_demo.silver.customers c CROSS JOIN b
 ),
 c2 AS (
@@ -72,14 +85,19 @@ m AS (
     u('co', concat(customer_id, ':', k)) AS uk, u('sz', concat(customer_id, ':', k)) AS us,
     u('dy', concat(customer_id, ':', k)) AS ud
   FROM c2 LATERAL VIEW explode(sequence(0, max_k)) e AS k
+),
+d AS (
+  SELECT *, CASE WHEN k = 0 THEN signup_date
+                 ELSE date_add(month_start, cast(floor(ud * day(last_day(month_start))) AS INT)) END AS evt_date
+  FROM m
 )
 SELECT *,
-  CASE WHEN k = 0 THEN 0.0
+  CASE WHEN k = 0 OR evt_date > cutoff THEN 0.0
        WHEN ue < p_exp THEN ln(1.10 + 0.35*us)
        WHEN uk < p_con THEN ln(0.75 + 0.20*us)
        ELSE 0.0 END AS logf,
-  (k >= 1 AND uc < p_churn) AS churn_flag
-FROM m;
+  (k >= 1 AND uc < p_churn AND evt_date <= cutoff) AS churn_flag
+FROM d;
 
 CREATE OR REPLACE TEMPORARY VIEW sim AS
 WITH f AS (
@@ -91,9 +109,7 @@ WITH f AS (
   FROM f WHERE churn_k IS NULL OR k <= churn_k
 )
 SELECT *,
-  LAG(mrr_path) OVER (PARTITION BY customer_id ORDER BY k) AS prev_mrr,
-  CASE WHEN k = 0 THEN signup_date
-       ELSE date_add(month_start, cast(floor(ud * day(last_day(month_start))) AS INT)) END AS evt_date
+  LAG(mrr_path) OVER (PARTITION BY customer_id ORDER BY k) AS prev_mrr
 FROM p;
 
 CREATE OR REPLACE TABLE saas_demo.silver.subscriptions

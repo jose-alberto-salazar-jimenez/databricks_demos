@@ -1,7 +1,8 @@
-"""Monthly refresh, task 1 of 3 (serverless): rebuild the synthetic silver layer.
+"""Daily refresh, task 1 of 3 (serverless): rebuild the synthetic silver layer.
 
 Runs sql/02_silver.sql in one Spark session (it uses a temporary function and views).
-Deterministic: within one calendar month the rebuild produces identical data.
+Deterministic: silver covers the 24-month window plus the current month up to yesterday, and each
+daily rebuild only adds days (earlier days never change).
 Task 2 (sql/09_refresh_gold.sql) must run on the SQL warehouse, because the gold
 materialized views were created there and cannot be refreshed from serverless compute.
 """

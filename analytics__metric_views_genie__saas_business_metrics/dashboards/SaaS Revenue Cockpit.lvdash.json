@@ -3,19 +3,19 @@
     {
       "name": "revenue",
       "displayName": "Revenue metrics (certified)",
-      "asset_name": "saas_demo.gold.saas_revenue_metrics"
+      "asset_name": "saas_demo.gold.revenue_monthly_metrics"
     },
     {
       "name": "customers",
       "displayName": "Customer metrics (certified)",
-      "asset_name": "saas_demo.gold.saas_customer_metrics"
+      "asset_name": "saas_demo.gold.customer_health_metrics"
     },
     {
       "name": "cohorts",
       "displayName": "Cohort retention",
       "config": {
         "version": "1.1",
-        "source": "saas_demo.gold.cohort_retention",
+        "source": "saas_demo.gold.signup_cohort_retention_monthly",
         "dimensions": [
           {
             "name": "signup_month",

@@ -7,5 +7,5 @@ SELECT month, segment,
   CAST(SUM(opening_customers) AS INT) AS opening_customers,
   CAST(SUM(churned_customers) AS INT) AS churned_customers,
   CAST(SUM(churned_customers) / NULLIF(SUM(opening_customers), 0) AS DOUBLE) AS churn
-FROM saas_demo.gold.mrr_monthly
+FROM saas_demo.gold.customer_mrr_monthly
 GROUP BY month, segment;
