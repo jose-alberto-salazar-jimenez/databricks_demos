@@ -1,6 +1,6 @@
 {
   "title": "Customer Success",
-  "description": "For customer success managers: ask about active customers, ARPA, tenure, churned accounts, signup-cohort retention, churn and net revenue retention by segment, region and plan. Built on the certified metric views saas_demo.gold.saas_customer_metrics and saas_demo.gold.saas_revenue_metrics (synthetic SaaS demo data, fictional company names, USD).",
+  "description": "For customer success managers: ask about active customers, ARPA, tenure, churned accounts, signup-cohort retention, churn and net revenue retention by segment, region and plan. Built on the certified metric views saas_demo.gold.customer_health_metrics and saas_demo.gold.revenue_monthly_metrics (synthetic SaaS demo data, fictional company names, USD).",
   "serialized_space": {
     "version": 2,
     "config": {
@@ -46,44 +46,37 @@
     "data_sources": {
       "tables": [
         {
-          "identifier": "saas_demo.gold.cohort_retention",
+          "identifier": "saas_demo.gold.customer_health_metrics",
           "description": [
-            "Signup-month cohort x months since signup. Logo retention = customers_active / customers_start; revenue retention = mrr_now / mrr_start. Never sum rows within a cohort."
+            "Certified customer-base KPIs as of the end of the last complete month."
           ],
           "column_configs": [
             {
-              "column_name": "customers_active",
+              "column_name": "active_customers",
               "synonyms": [
-                "retained customers",
-                "customers still active"
+                "active accounts",
+                "paying customers",
+                "logos"
               ]
             },
             {
-              "column_name": "months_since_signup",
+              "column_name": "arpa",
               "synonyms": [
-                "cohort age",
-                "months since acquisition"
+                "average revenue per account",
+                "average revenue per customer"
               ]
             },
             {
-              "column_name": "mrr_now",
+              "column_name": "avg_tenure_months",
               "synonyms": [
-                "retained MRR",
-                "cohort recurring revenue"
+                "average tenure",
+                "average customer lifetime"
               ]
-            },
-            {
-              "column_name": "signup_month",
-              "synonyms": [
-                "cohort",
-                "acquisition month"
-              ],
-              "enable_format_assistance": true
             }
           ]
         },
         {
-          "identifier": "saas_demo.gold.customer_snapshot",
+          "identifier": "saas_demo.gold.customer_status_snapshot",
           "description": [
             "One row per customer as of the end of the last complete month. Use for account lists. Company names are fictional."
           ],
@@ -146,37 +139,7 @@
           ]
         },
         {
-          "identifier": "saas_demo.gold.saas_customer_metrics",
-          "description": [
-            "Certified customer-base KPIs as of the end of the last complete month."
-          ],
-          "column_configs": [
-            {
-              "column_name": "active_customers",
-              "synonyms": [
-                "active accounts",
-                "paying customers",
-                "logos"
-              ]
-            },
-            {
-              "column_name": "arpa",
-              "synonyms": [
-                "average revenue per account",
-                "average revenue per customer"
-              ]
-            },
-            {
-              "column_name": "avg_tenure_months",
-              "synonyms": [
-                "average tenure",
-                "average customer lifetime"
-              ]
-            }
-          ]
-        },
-        {
-          "identifier": "saas_demo.gold.saas_revenue_metrics",
+          "identifier": "saas_demo.gold.revenue_monthly_metrics",
           "description": [
             "Certified revenue KPIs by month, segment, region and plan. Use for NRR, revenue churn and MRR trend questions. MRR is point-in-time; rates are monthly."
           ],
@@ -217,6 +180,43 @@
               "exclude": true
             }
           ]
+        },
+        {
+          "identifier": "saas_demo.gold.signup_cohort_retention_monthly",
+          "description": [
+            "Signup-month cohort x months since signup. Logo retention = customers_active / customers_start; revenue retention = mrr_now / mrr_start. Never sum rows within a cohort."
+          ],
+          "column_configs": [
+            {
+              "column_name": "customers_active",
+              "synonyms": [
+                "retained customers",
+                "customers still active"
+              ]
+            },
+            {
+              "column_name": "months_since_signup",
+              "synonyms": [
+                "cohort age",
+                "months since acquisition"
+              ]
+            },
+            {
+              "column_name": "mrr_now",
+              "synonyms": [
+                "retained MRR",
+                "cohort recurring revenue"
+              ]
+            },
+            {
+              "column_name": "signup_month",
+              "synonyms": [
+                "cohort",
+                "acquisition month"
+              ],
+              "enable_format_assistance": true
+            }
+          ]
         }
       ]
     },
@@ -235,10 +235,10 @@
             "* Data is synthetic, company names are fictional and amounts are USD; do not mention this in answers unless asked.\n",
             "\n",
             "## Data sources\n",
-            "* saas_demo.gold.saas_customer_metrics (certified metric view): MEASURE() for active_customers, arpa and avg_tenure_months. Dimensions: segment, region, plan, status.\n",
-            "* saas_demo.gold.customer_snapshot: account lists (which customers, their plan, MRR, tenure, churn date).\n",
-            "* saas_demo.gold.cohort_retention: signup-cohort retention by months_since_signup.\n",
-            "* saas_demo.gold.saas_revenue_metrics (certified metric view): MEASURE() for logo_churn_rate, gross_revenue_churn_rate, net_revenue_retention, net_revenue_retention_annualized, net_new_mrr and the *_t12m rates.\n",
+            "* saas_demo.gold.customer_health_metrics (certified metric view): MEASURE() for active_customers, arpa and avg_tenure_months. Dimensions: segment, region, plan, status.\n",
+            "* saas_demo.gold.customer_status_snapshot: account lists (which customers, their plan, MRR, tenure, churn date).\n",
+            "* saas_demo.gold.signup_cohort_retention_monthly: signup-cohort retention by months_since_signup.\n",
+            "* saas_demo.gold.revenue_monthly_metrics (certified metric view): MEASURE() for logo_churn_rate, gross_revenue_churn_rate, net_revenue_retention, net_revenue_retention_annualized, net_new_mrr and the *_t12m rates.\n",
             "\n",
             "## Routing\n",
             "* Detailed MRR waterfall, ARR and growth questions belong to the Revenue and Retention Genie Agent: answer the headline and say so briefly.\n",
@@ -252,17 +252,17 @@
             "\n",
             "## Time periods\n",
             "* Snapshot figures (active customers, ARPA, tenure) are as of the end of the last complete month.\n",
-            "* Rates from saas_revenue_metrics (churn, NRR): with no period, 'current' or 'this month', filter month = add_months(trunc(current_date(), 'MM'), -1) and say which month. With an explicit period (e.g. 'last 12 months') and no 'by month' or 'trend', filter to that period and return ONE pooled rate per group; do not group by month. Never report an unfiltered all-months rate as current.\n",
+            "* Rates from revenue_monthly_metrics (churn, NRR): with no period, 'current' or 'this month', filter month = add_months(trunc(current_date(), 'MM'), -1) and say which month. With an explicit period (e.g. 'last 12 months') and no 'by month' or 'trend', filter to that period and return ONE pooled rate per group; do not group by month. Never report an unfiltered all-months rate as current.\n",
             "\n",
             "## Ambiguous questions\n",
             "* Churn defaults to customers lost (logo churn). When the question does not say logo or revenue, show both logo_churn_rate and gross_revenue_churn_rate.\n",
-            "* Retention without a type: show both cohort logo/revenue retention (cohort_retention) and net revenue retention (net_revenue_retention_annualized).\n",
+            "* Retention without a type: show both cohort logo/revenue retention (signup_cohort_retention_monthly) and net revenue retention (net_revenue_retention_annualized).\n",
             "* Which segments are shrinking, without saying how: show both lenses over the last 3 complete months, net new MRR (total MRR change) and NRR (existing customers only), and point out when they disagree.\n",
             "\n",
             "## SQL guardrails\n",
             "* Reference measures with MEASURE(`name`); never wrap a measure in SUM, AVG or COUNT.\n",
             "* Never sum cohort rows across months_since_signup. Late months_since_signup values have few cohorts; mention it when showing them.\n",
-            "* For account lists use customer_snapshot, not the metric views.\n",
+            "* For account lists use customer_status_snapshot, not the metric views.\n",
             "\n",
             "## Answer style\n",
             "* Lead with the number and the population or period it covers. Percentages with 1-2 decimals, amounts in USD.\n",
@@ -279,7 +279,7 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa\n",
-            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "FROM saas_demo.gold.customer_health_metrics\n",
             "GROUP BY ALL\n",
             "ORDER BY `segment`"
           ]
@@ -291,7 +291,7 @@
           ],
           "sql": [
             "SELECT `region`, `plan`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa, MEASURE(`avg_tenure_months`) AS avg_tenure_months\n",
-            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "FROM saas_demo.gold.customer_health_metrics\n",
             "WHERE `segment` = :segment\n",
             "GROUP BY ALL\n",
             "ORDER BY `region`, `plan`"
@@ -322,7 +322,7 @@
           "sql": [
             "SELECT signup_month, customers_start, customers_active,\n",
             "  customers_active / customers_start AS logo_retention_m6, mrr_now / mrr_start AS revenue_retention_m6\n",
-            "FROM saas_demo.gold.cohort_retention\n",
+            "FROM saas_demo.gold.signup_cohort_retention_monthly\n",
             "WHERE months_since_signup = 6\n",
             "ORDER BY signup_month"
           ]
@@ -334,7 +334,7 @@
           ],
           "sql": [
             "SELECT customer_id, company_name, region, plan, churn_month, tenure_months\n",
-            "FROM saas_demo.gold.customer_snapshot\n",
+            "FROM saas_demo.gold.customer_status_snapshot\n",
             "WHERE status = 'churned' AND segment = 'Enterprise'\n",
             "  AND churn_month >= add_months(trunc(current_date(), 'MM'), -6)\n",
             "ORDER BY churn_month DESC"
@@ -347,7 +347,7 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure_months\n",
-            "FROM saas_demo.gold.saas_customer_metrics\n",
+            "FROM saas_demo.gold.customer_health_metrics\n",
             "WHERE `status` = 'churned'\n",
             "GROUP BY ALL\n",
             "ORDER BY `segment`"
@@ -361,10 +361,10 @@
           "sql": [
             "WITH cohort AS (\n",
             "  SELECT SUM(customers_active) / SUM(customers_start) AS logo_retention_12m, SUM(mrr_now) / SUM(mrr_start) AS revenue_retention_12m\n",
-            "  FROM saas_demo.gold.cohort_retention WHERE months_since_signup = 12),\n",
+            "  FROM saas_demo.gold.signup_cohort_retention_monthly WHERE months_since_signup = 12),\n",
             "nrr AS (\n",
             "  SELECT MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized\n",
-            "  FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL)\n",
+            "  FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL)\n",
             "SELECT cohort.logo_retention_12m, cohort.revenue_retention_12m, nrr.nrr_annualized FROM cohort CROSS JOIN nrr"
           ],
           "usage_guidance": [
@@ -378,7 +378,7 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`net_new_mrr`) AS net_new_mrr_3m, MEASURE(`net_revenue_retention`) AS nrr_monthly_3m\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -3)\n",
             "GROUP BY ALL\n",
             "ORDER BY nrr_monthly_3m ASC"
@@ -394,7 +394,7 @@
           ],
           "sql": [
             "SELECT MEASURE(`logo_churn_rate`) AS logo_churn_rate, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn_rate\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` = add_months(trunc(current_date(), 'MM'), -1)\n",
             "GROUP BY ALL"
           ],
@@ -408,7 +408,7 @@
           {
             "id": "b4000000000000000000000000000001",
             "sql": [
-              "customer_snapshot.status = 'active'"
+              "customer_status_snapshot.status = 'active'"
             ],
             "display_name": "active customer",
             "synonyms": [
@@ -420,7 +420,7 @@
           {
             "id": "b4000000000000000000000000000002",
             "sql": [
-              "customer_snapshot.status = 'churned'"
+              "customer_status_snapshot.status = 'churned'"
             ],
             "display_name": "churned customer",
             "synonyms": [
@@ -433,7 +433,7 @@
           {
             "id": "b4000000000000000000000000000003",
             "sql": [
-              "customer_snapshot.segment = 'Enterprise'"
+              "customer_status_snapshot.segment = 'Enterprise'"
             ],
             "display_name": "enterprise segment",
             "synonyms": [
@@ -444,7 +444,7 @@
           {
             "id": "b4000000000000000000000000000004",
             "sql": [
-              "customer_snapshot.churn_month >= add_months(trunc(current_date(), 'MM'), -3)"
+              "customer_status_snapshot.churn_month >= add_months(trunc(current_date(), 'MM'), -3)"
             ],
             "display_name": "churned recently",
             "instruction": [
@@ -461,7 +461,7 @@
             "id": "b5000000000000000000000000000001",
             "alias": "tenure_band",
             "sql": [
-              "CASE WHEN customer_snapshot.tenure_months < 6 THEN '0-5 months' WHEN customer_snapshot.tenure_months < 12 THEN '6-11 months' ELSE '12+ months' END"
+              "CASE WHEN customer_status_snapshot.tenure_months < 6 THEN '0-5 months' WHEN customer_status_snapshot.tenure_months < 12 THEN '6-11 months' ELSE '12+ months' END"
             ],
             "display_name": "tenure band",
             "synonyms": [
@@ -473,7 +473,7 @@
             "id": "b5000000000000000000000000000002",
             "alias": "cohort_logo_retention",
             "sql": [
-              "cohort_retention.customers_active / cohort_retention.customers_start"
+              "signup_cohort_retention_monthly.customers_active / signup_cohort_retention_monthly.customers_start"
             ],
             "display_name": "cohort logo retention",
             "synonyms": [
@@ -495,7 +495,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -509,7 +509,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -523,7 +523,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.customer_health_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -537,7 +537,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.customer_health_metrics GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -551,7 +551,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL"
+                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.customer_health_metrics GROUP BY ALL"
               ]
             }
           ]
@@ -565,7 +565,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, `status`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`, `status`"
+                "SELECT `segment`, `status`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.customer_health_metrics GROUP BY ALL ORDER BY `segment`, `status`"
               ]
             }
           ]
@@ -579,7 +579,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT signup_month, customers_start, customers_active, customers_active / customers_start AS logo_retention_m6, mrr_now / mrr_start AS revenue_retention_m6 FROM saas_demo.gold.cohort_retention WHERE months_since_signup = 6 ORDER BY signup_month"
+                "SELECT signup_month, customers_start, customers_active, customers_active / customers_start AS logo_retention_m6, mrr_now / mrr_start AS revenue_retention_m6 FROM saas_demo.gold.signup_cohort_retention_monthly WHERE months_since_signup = 6 ORDER BY signup_month"
               ]
             }
           ]
@@ -593,7 +593,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics WHERE `segment` = 'Enterprise' GROUP BY ALL ORDER BY arpa ASC LIMIT 1"
+                "SELECT `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.customer_health_metrics WHERE `segment` = 'Enterprise' GROUP BY ALL ORDER BY arpa ASC LIMIT 1"
               ]
             }
           ]
@@ -607,7 +607,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.saas_customer_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`avg_tenure_months`) AS avg_tenure FROM saas_demo.gold.customer_health_metrics WHERE `status` = 'churned' GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -621,7 +621,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `plan`, `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `plan`, `region`"
+                "SELECT `plan`, `region`, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.customer_health_metrics GROUP BY ALL ORDER BY `plan`, `region`"
               ]
             }
           ]
@@ -635,7 +635,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`active_customers`) AS active_customers, MEASURE(`arpa`) AS arpa FROM saas_demo.gold.customer_health_metrics GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -649,7 +649,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.saas_customer_metrics GROUP BY ALL"
+                "SELECT MEASURE(`active_customers`) AS active_customers FROM saas_demo.gold.customer_health_metrics GROUP BY ALL"
               ]
             }
           ]

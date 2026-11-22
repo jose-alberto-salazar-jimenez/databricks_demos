@@ -1,6 +1,6 @@
 {
   "title": "Revenue and Retention",
-  "description": "For finance and RevOps teams: ask about MRR, ARR, net new MRR, logo and revenue churn and net revenue retention by month, segment, region and plan. Built on the certified metric view saas_demo.gold.saas_revenue_metrics (synthetic SaaS demo data, USD).",
+  "description": "For finance and RevOps teams: ask about MRR, ARR, net new MRR, logo and revenue churn and net revenue retention by month, segment, region and plan. Built on the certified metric views saas_demo.gold.revenue_monthly_metrics and saas_demo.gold.revenue_daily_metrics (daily trends, last 28 / 91 days and month to date vs prior period) (synthetic SaaS demo data, USD).",
   "serialized_space": {
     "version": 2,
     "config": {
@@ -40,7 +40,7 @@
     "data_sources": {
       "tables": [
         {
-          "identifier": "saas_demo.gold.mrr_monthly",
+          "identifier": "saas_demo.gold.customer_mrr_monthly",
           "description": [
             "Customer x month MRR waterfall (USD). Use only for customer-level detail; use the metric view for KPIs."
           ],
@@ -89,7 +89,13 @@
           ]
         },
         {
-          "identifier": "saas_demo.gold.saas_revenue_metrics",
+          "identifier": "saas_demo.gold.revenue_daily_metrics",
+          "description": [
+            "Certified day-level KPIs including the current month to date: daily trends, recognized revenue last 28 / 91 days vs prior window, month to date vs the same days of the previous month, MRR vs earlier dates."
+          ]
+        },
+        {
+          "identifier": "saas_demo.gold.revenue_monthly_metrics",
           "description": [
             "Certified revenue KPIs. MRR and ARR are point-in-time; flow measures sum over months; rates are monthly."
           ],
@@ -169,8 +175,14 @@
             "* Data is synthetic, company names are fictional and amounts are USD; do not mention this in answers unless asked.\n",
             "\n",
             "## Data sources\n",
-            "* saas_demo.gold.saas_revenue_metrics (certified metric view): use it with MEASURE() for every KPI. Dimensions: month, segment, region, plan.\n",
-            "* saas_demo.gold.mrr_monthly: only for customer-level detail (which customers expanded, contracted or churned in a month).\n",
+            "* saas_demo.gold.revenue_monthly_metrics (certified metric view): use it with MEASURE() for every KPI. Dimensions: month, segment, region, plan.\n",
+            "* saas_demo.gold.customer_mrr_monthly: only for customer-level detail (which customers expanded, contracted or churned in a month).\n",
+            "\n",
+            "## Daily data and period comparisons\n",
+            "* saas_demo.gold.revenue_daily_metrics has day-level data through YESTERDAY, including the current month to date. Use it for daily trends, 'last 28 / 91 days', 'month to date' and 'vs the same days last month'. Monthly KPIs (MRR waterfall, churn rates, NRR, YoY) stay on revenue_monthly_metrics, which has complete months only.\n",
+            "* Recognized revenue = subscription revenue earned in a period (each day earns MRR / days in the month), so it can be compared across date ranges. MRR is a balance, never summed over days.\n",
+            "* Use the ready-made window measures (recognized_revenue_l28d / _p28d, _l91d / _p91d, _mtd / _pmtd and the _change measures, mrr_28d_ago, mrr_91d_ago, mrr_prev_month_same_day). Do not rebuild them with date filters. Without a date filter they are anchored on yesterday; say which dates the windows cover.\n",
+            "* 'Same days last month' compares day 1 to the same day number of the previous month, capped at that month's end.\n",
             "\n",
             "## Routing\n",
             "* Account lists, tenure, ARPA and signup cohorts belong to the Customer Success Genie Agent: answer what you can from your data and say so briefly.\n",
@@ -211,7 +223,7 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`mrr`) AS mrr, MEASURE(`arr`) AS arr\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` = trunc(:month, 'MM')\n",
             "GROUP BY ALL\n",
             "ORDER BY mrr DESC"
@@ -242,7 +254,7 @@
           "sql": [
             "SELECT `month`, MEASURE(`mrr`) AS mrr, MEASURE(`new_mrr`) AS new_mrr, MEASURE(`expansion_mrr`) AS expansion_mrr,\n",
             "  MEASURE(`contraction_mrr`) AS contraction_mrr, MEASURE(`churned_mrr`) AS churned_mrr, MEASURE(`net_new_mrr`) AS net_new_mrr\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
             "GROUP BY ALL\n",
             "ORDER BY `month` ASC"
@@ -255,7 +267,7 @@
           ],
           "sql": [
             "SELECT MEASURE(`logo_churn_rate`) AS logo_churn_rate, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn_rate\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` = add_months(trunc(current_date(), 'MM'), -1)\n",
             "GROUP BY ALL"
           ],
@@ -270,7 +282,7 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
             "GROUP BY ALL\n",
             "ORDER BY `segment`"
@@ -283,8 +295,8 @@
           ],
           "sql": [
             "SELECT customer_id, segment, region, plan, closing_mrr\n",
-            "FROM saas_demo.gold.mrr_monthly\n",
-            "WHERE month = (SELECT MAX(month) FROM saas_demo.gold.mrr_monthly)\n",
+            "FROM saas_demo.gold.customer_mrr_monthly\n",
+            "WHERE month = (SELECT MAX(month) FROM saas_demo.gold.customer_mrr_monthly)\n",
             "ORDER BY closing_mrr DESC\n",
             "LIMIT 10"
           ]
@@ -297,7 +309,7 @@
           "sql": [
             "SELECT `month`, MEASURE(`mrr`) AS mrr, MEASURE(`mrr_prev_month`) AS mrr_prev_month, MEASURE(`mrr_mom_growth`) AS mrr_mom_growth,\n",
             "  MEASURE(`mrr_prior_year`) AS mrr_prior_year, MEASURE(`mrr_yoy_growth`) AS mrr_yoy_growth\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -12)\n",
             "GROUP BY ALL\n",
             "ORDER BY `month` ASC"
@@ -313,13 +325,60 @@
           ],
           "sql": [
             "SELECT `segment`, MEASURE(`net_new_mrr`) AS net_new_mrr_3m, MEASURE(`net_revenue_retention`) AS nrr_monthly_3m\n",
-            "FROM saas_demo.gold.saas_revenue_metrics\n",
+            "FROM saas_demo.gold.revenue_monthly_metrics\n",
             "WHERE `month` >= add_months(trunc(current_date(), 'MM'), -3)\n",
             "GROUP BY ALL\n",
             "ORDER BY nrr_monthly_3m ASC"
           ],
           "usage_guidance": [
             "Shrinking is ambiguous: show total MRR change (net new MRR) and existing-customer retention (NRR) side by side"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000008",
+          "question": [
+            "How is revenue month to date compared with the same days last month?"
+          ],
+          "sql": [
+            "SELECT MEASURE(`recognized_revenue_mtd`) AS revenue_mtd, MEASURE(`recognized_revenue_pmtd`) AS revenue_same_days_last_month,\n",
+            "  MEASURE(`recognized_revenue_mtd_change`) AS change\n",
+            "FROM saas_demo.gold.revenue_daily_metrics\n",
+            "GROUP BY ALL"
+          ],
+          "usage_guidance": [
+            "Month to date vs the same days of the previous month, anchored on yesterday"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000009",
+          "question": [
+            "How did revenue in the last 28 days compare with the prior 28 days, by segment?"
+          ],
+          "sql": [
+            "SELECT `segment`, MEASURE(`recognized_revenue_l28d`) AS revenue_last_28d, MEASURE(`recognized_revenue_p28d`) AS revenue_prior_28d,\n",
+            "  MEASURE(`recognized_revenue_l28d_change`) AS change\n",
+            "FROM saas_demo.gold.revenue_daily_metrics\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `segment`"
+          ],
+          "usage_guidance": [
+            "Rolling 28-day window vs the 28 days before; same pattern with _l91d / _p91d for 91 days"
+          ]
+        },
+        {
+          "id": "a3000000000000000000000000000010",
+          "question": [
+            "Show daily recognized revenue and net new MRR this month"
+          ],
+          "sql": [
+            "SELECT `date`, MEASURE(`recognized_revenue`) AS recognized_revenue, MEASURE(`net_new_mrr`) AS net_new_mrr\n",
+            "FROM saas_demo.gold.revenue_daily_metrics\n",
+            "WHERE `date` >= trunc(current_date(), 'MM')\n",
+            "GROUP BY ALL\n",
+            "ORDER BY `date`"
+          ],
+          "usage_guidance": [
+            "Daily trend of the current month to date"
           ]
         }
       ],
@@ -328,7 +387,7 @@
           {
             "id": "a4000000000000000000000000000001",
             "sql": [
-              "mrr_monthly.closing_mrr > 0"
+              "customer_mrr_monthly.closing_mrr > 0"
             ],
             "display_name": "active customer",
             "instruction": [
@@ -342,7 +401,7 @@
           {
             "id": "a4000000000000000000000000000002",
             "sql": [
-              "mrr_monthly.churned_customers = 1"
+              "customer_mrr_monthly.churned_customers = 1"
             ],
             "display_name": "churned customer",
             "instruction": [
@@ -356,7 +415,7 @@
           {
             "id": "a4000000000000000000000000000003",
             "sql": [
-              "mrr_monthly.segment = 'Enterprise'"
+              "customer_mrr_monthly.segment = 'Enterprise'"
             ],
             "display_name": "enterprise segment",
             "synonyms": [
@@ -367,7 +426,7 @@
           {
             "id": "a4000000000000000000000000000004",
             "sql": [
-              "mrr_monthly.month = add_months(trunc(current_date(), 'MM'), -1)"
+              "customer_mrr_monthly.month = add_months(trunc(current_date(), 'MM'), -1)"
             ],
             "display_name": "last complete month",
             "synonyms": [
@@ -382,7 +441,7 @@
             "id": "a5000000000000000000000000000001",
             "alias": "quarter",
             "sql": [
-              "DATE_TRUNC('QUARTER', mrr_monthly.month)"
+              "DATE_TRUNC('QUARTER', customer_mrr_monthly.month)"
             ],
             "display_name": "quarter",
             "synonyms": [
@@ -396,6 +455,34 @@
     "benchmarks": {
       "questions": [
         {
+          "id": "b5000000000000000000000000000014",
+          "question": [
+            "What was recognized revenue in the last 91 days and in the 91 days before that?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`recognized_revenue_l91d`) AS revenue_last_91d, MEASURE(`recognized_revenue_p91d`) AS revenue_prior_91d FROM saas_demo.gold.revenue_daily_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b5000000000000000000000000000013",
+          "question": [
+            "What is recognized revenue month to date and for the same days of last month?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT MEASURE(`recognized_revenue_mtd`) AS revenue_mtd, MEASURE(`recognized_revenue_pmtd`) AS revenue_pmtd FROM saas_demo.gold.revenue_daily_metrics GROUP BY ALL"
+              ]
+            }
+          ]
+        },
+        {
           "id": "a6000000000000000000000000000012",
           "question": [
             "What is our annualized net revenue retention by segment?"
@@ -404,7 +491,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`net_revenue_retention_annualized`) AS nrr_annualized FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -418,7 +505,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT MEASURE(`mrr_yoy_growth`) AS mrr_yoy_growth FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+                "SELECT MEASURE(`mrr_yoy_growth`) AS mrr_yoy_growth FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL"
               ]
             }
           ]
@@ -432,7 +519,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -446,7 +533,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY arr DESC"
+                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL ORDER BY arr DESC"
               ]
             }
           ]
@@ -460,7 +547,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL"
               ]
             }
           ]
@@ -474,7 +561,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `region`, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -3) GROUP BY ALL ORDER BY net_new_mrr DESC LIMIT 1"
+                "SELECT `region`, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -3) GROUP BY ALL ORDER BY net_new_mrr DESC LIMIT 1"
               ]
             }
           ]
@@ -488,7 +575,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`logo_churn_rate`) AS logo_churn, MEASURE(`gross_revenue_churn_rate`) AS gross_revenue_churn FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -502,7 +589,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
+                "SELECT `segment`, MEASURE(`net_revenue_retention`) AS nrr_monthly FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `segment`"
               ]
             }
           ]
@@ -516,7 +603,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `month`, MEASURE(`new_mrr`) AS new_mrr, MEASURE(`expansion_mrr`) AS expansion_mrr, MEASURE(`contraction_mrr`) AS contraction_mrr, MEASURE(`churned_mrr`) AS churned_mrr, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
+                "SELECT `month`, MEASURE(`new_mrr`) AS new_mrr, MEASURE(`expansion_mrr`) AS expansion_mrr, MEASURE(`contraction_mrr`) AS contraction_mrr, MEASURE(`churned_mrr`) AS churned_mrr, MEASURE(`net_new_mrr`) AS net_new_mrr FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
               ]
             }
           ]
@@ -530,7 +617,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `month`, MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
+                "SELECT `month`, MEASURE(`mrr`) AS mrr FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(),'MM'), -12) GROUP BY ALL ORDER BY `month` ASC"
               ]
             }
           ]
@@ -544,7 +631,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL ORDER BY arr DESC"
+                "SELECT `segment`, MEASURE(`arr`) AS arr FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL ORDER BY arr DESC"
               ]
             }
           ]
@@ -558,7 +645,7 @@
             {
               "format": "SQL",
               "content": [
-                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.saas_revenue_metrics GROUP BY ALL"
+                "SELECT MEASURE(`mrr`) AS mrr FROM saas_demo.gold.revenue_monthly_metrics GROUP BY ALL"
               ]
             }
           ]
