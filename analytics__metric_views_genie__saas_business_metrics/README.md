@@ -1,4 +1,4 @@
-# Analytics (Demo | Example): Metric Vews and Genie for SaaS Bsiness Merics 
+# Analytics (Demo | Example): Metric Views and Genie for SaaS Business Metrics
 
 **SaaS business metrics - Unity Catalog metric views (semantic layer) + Genie Agents**
 
