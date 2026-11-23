@@ -7,10 +7,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 How to use:
 
 * Every pull request adds its entries under `[Unreleased]` (Added, Changed, Fixed, Removed).
-* When the PR is merged, the `[Unreleased]` entries move under a new version with the date:
-  MAJOR for breaking changes (e.g. table or API contract), MINOR for new features, PATCH for fixes.
+* The last commit of the same PR moves them under the new version with the expected merge date
+  (no separate changelog PRs): MAJOR for breaking changes (e.g. table or API contract), MINOR for
+  new features, PATCH for fixes and configuration.
 
 ## [Unreleased]
+
+## [1.2.1] - 2026-11-20
+
+### Changed
+
+* Backfill job: optional daily schedule at 11:00 America/Bogota via `backfill_pause_status`, and
+  scheduled-run mode via `backfill_default_mode`. Prod: `UNPAUSED` + `history` during the history
+  backfill window; dev and the default stay `PAUSED`.
+* Changelog process: version bump is the last commit of each feature PR.
 
 ## [1.2.0] - 2026-11-20
 
