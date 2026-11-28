@@ -70,7 +70,7 @@ feedback round trip, Genie Q&A samples, app walkthrough; one text file per phase
 
 | Item | Why deferred |
 | --- | --- |
-| Trained 72h risk model + serving endpoint | Needs labelled history; ERA5 backfill (code exists) and citizen feedback provide it |
+| Trained 72h risk model + serving endpoint | Needs labelled history: ERA5 backfill (commit 7a9aad3) and citizen feedback |
 | Feedback sync to bronze, forecast skill metrics | Needs feedback volume; the PoC shows the write path |
 | User profiles, map picker, SMS channels | UX scale-out; town search covers the demo |
 | Prod deployment by a service principal | Demo runs in one workspace (DECISIONS #14) |
@@ -88,8 +88,7 @@ feedback round trip, Genie Q&A samples, app walkthrough; one text file per phase
 
 ## 9. Open items
 
-* Size budget: 27 of 30 files and over 90k chars after phase 3. Removing the ERA5 backfill code
-  (`history_lib.py`, `backfill_sources`, `backfill.job.yml`) would free 3 files (~11k chars).
+* Size budget for phases 4-5: at most 6 new files and about 12k chars (scorer: 30 files, 90k).
 * Confirm Open-Meteo free-tier terms (non-commercial) fit the demo use.
 
 Decisions and trade-offs: DECISIONS.md. Architecture and data model: ARCHITECTURE.md.
