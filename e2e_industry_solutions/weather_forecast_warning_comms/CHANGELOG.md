@@ -13,6 +13,11 @@ How to use:
 
 ## [Unreleased]
 
+### Changed
+
+* PLAN.md rewritten as the PoC scope: every FE Bar stage at its smallest working size, GenAI
+  advisories on rule-based risk flags, deferred items with reasons (DECISIONS.md #15).
+
 ## [1.3.0] - 2026-11-28
 
 ### Added

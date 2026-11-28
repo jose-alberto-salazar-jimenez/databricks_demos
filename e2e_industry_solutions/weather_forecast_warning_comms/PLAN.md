@@ -1,9 +1,9 @@
-# Weather Forecast Warning Comms - Build Plan
+# Weather Forecast Warning Comms - PoC Plan
 
-End-to-end Databricks solution: weather forecasts, extreme events and ENSO signals turned into
-location-specific, multilingual, preventive communications, with a citizen-feedback loop.
-Scoped to meet the FE Bar build requirements (Lakeflow, Unity Catalog, Lakebase, ML/GenAI,
-Genie Agent, Databricks App, evidence readable as text, public/synthetic data only, no secrets).
+Proof of concept of what a civil protection agency would buy: weather forecasts, extreme events
+and ENSO turned into location-specific, multilingual, preventive advisories, with citizen
+feedback. Every FE Bar stage is built end to end at its smallest working size; the full product
+is the roadmap (section 7). Public data only, no secrets, evidence readable as text.
 
 Status: phases 1-2 built in dev (ingestion + medallion pipeline, full grid); see CHANGELOG.md.
 
@@ -25,125 +25,72 @@ Peru, Ecuador, Colombia, Panama, Costa Rica. Contrasting ENSO impacts: El Nino f
 Peru/Ecuador, dries Colombia and the Pacific side of Costa Rica/Panama (Dry Corridor).
 Languages: Spanish, English (extensible).
 
-Coverage (decided): land grid + all towns/cities.
+Coverage (decided): land grid + towns.
 * Grid: 20 km for PE/CO/EC (6,774 cells), 10 km for CR/PA (1,267), land only, lakes excluded
   (8,041 total; measured, see DECISIONS.md #4 and #11).
-* Towns: all GeoNames populated places (CC-BY), each mapped to its nearest grid cell, so any
-  town or coordinate resolves to a cell.
+* Towns: GeoNames populated places (CC-BY), each mapped to its nearest grid cell, so any town
+  or coordinate resolves to a cell (PoC: main towns only).
 * Budget: fits Open-Meteo's free tier at 1 call/point; limits and horizon in ARCHITECTURE.md
   section 8, backfills in DECISIONS.md #12.
 
-## 3. Data sources (all public or synthetic, no API keys)
+## 3. PoC scope by FE Bar stage
 
-| Source | Content | Use |
+| Stage | PoC deliverable | Status |
 | --- | --- | --- |
-| Open-Meteo Historical + Forecast API | Daily/hourly temp, precip, wind, 11-day forecast | Past, current, future trends |
-| NOAA CPC ONI index | Monthly ENSO index / phase | Seasonal context |
-| GDACS alerts (RSS/JSON) | Floods, cyclones, droughts | Extreme events |
-| GeoNames dumps | Towns/cities, admin areas, population | Location search |
-| Synthetic (Python/LLM) | Event impact history, citizen feedback seed | Labels, demo realism |
-| Lakebase (app) | Live citizen feedback, user profiles | Citizen data loop |
+| Lakeflow | `daily_refresh` job: landing notebook (Open-Meteo, NOAA ONI, GDACS, reference data) -> SDP pipeline bronze/silver/gold with expectations | Built, full grid |
+| Unity Catalog | Dev/prod catalogs, table comments, lineage; add `domain`/`pii` tags and a gold-only grant for the app service principal | Built; tags and grant to add |
+| GenAI | Rule-based risk flags in gold + `gold.advisories` from `ai_query` (2 languages x 3 user types) | To build |
+| Lakebase | Synced tables from the gold summary and advisories; `citizen_feedback` table written by the app | To build |
+| Genie Agent | Space over the gold tables for agency analysts, with instructions and sample questions | To build |
+| App | One-page Dash app: pick a town, see 13 days, risk flags, ENSO and the advisory; send feedback | To build |
 
-Related prior work in this repo: `api_autoloader__data_eng__open_meteo_weather` (not a dependency).
+## 4. Risk flags and advisories (GenAI)
 
-## 4. Architecture (one integrated data journey)
+* Flags per cell and day in `gold.location_weather_summary`: heavy rain, heat, strong wind
+  (initial thresholds, tuned on the data: rain >= 50 mm/day, apparent max >= 35 C, gusts >= 60 km/h).
+* Advisories only for flagged cells and the main towns, in ES/EN for citizens, farmers and
+  municipalities; cached per cell, day, language and user type (DECISIONS #7).
+* Model: `databricks-qwen3-next-80b-a3b-instruct`, fallback `databricks-gpt-oss-20b` (DECISIONS #6).
+* Guardrails: prompts get values from gold only; no invented numbers or causes (the smoke test
+  attributed rain to La Nina). A reviewed sample is kept as evidence.
 
-APIs -> volume -> SDP bronze/silver/gold -> ML, LLM advisories, Genie, Lakebase -> app; app
-feedback flows back to bronze. Diagrams: ARCHITECTURE.md sections 2-3.
+## 5. App, Lakebase and Genie
 
-## 5. Unity Catalog layout
+* The app reads Lakebase only (synced tables) and writes feedback: location, date, observed
+  condition, forecast rating 1-5, comment. Auth: app service principal, OAuth to Lakebase.
+* Genie sample questions: "Which cells have heavy-rain flags in the next 3 days in Peru?",
+  "Where does El Nino add drought risk?". Separate from the app.
 
-Catalogs `weather_forecast_warnings_comms` (prod) and `..._dev` (dev), schemas `bronze`, `silver`,
-`gold`, volume `bronze.landing`. Built tables: ARCHITECTURE.md section 4 and `src/pipeline/`.
+## 6. Evidence plan
 
-| Layer | Tables (planned) |
+Pipeline and job run summaries (done), advisory samples (2 languages x 3 user types), Lakebase
+feedback round trip, Genie Q&A samples, app walkthrough; one text file per phase in `evidence/`.
+
+## 7. Out of scope for the PoC (roadmap)
+
+| Item | Why deferred |
 | --- | --- |
-| bronze | `open_meteo_history_raw`, `open_meteo_forecast_raw`, `enso_oni_raw`, `gdacs_events_raw`, `synthetic_impacts_raw`, `citizen_feedback_raw` |
-| silver | `dim_location`, `weather_observed_daily`, `weather_forecast_daily`, `enso_phase_monthly`, `extreme_events`, `citizen_feedback` |
-| gold | `location_weather_summary` (last 11d / today / next 11d), `forecast_vs_observed_skill`, `risk_features`, `risk_scores`, `advisories`, `feedback_metrics` |
+| Trained 72h risk model + serving endpoint | Needs labelled history; ERA5 backfill (code exists) and citizen feedback provide it |
+| Feedback sync to bronze, forecast skill metrics | Needs feedback volume; the PoC shows the write path |
+| User profiles, map picker, SMS channels | UX scale-out; town search covers the demo |
+| Prod deployment by a service principal | Demo runs in one workspace (DECISIONS #14) |
 
-Governance: table/column comments, tags (`pii`, `domain`), column mask on feedback contact
-fields, grants for an app service principal and an analysts group, lineage visible in UC.
-Data quality: SDP expectations (valid coordinates, plausible ranges, non-null dates).
-
-## 6. Ingestion - Lakeflow
-
-* Built: `daily_refresh` job, task 1 landing notebook, task 2 SDP pipeline (`read_files`
-  streaming tables, materialized views, expectations). Once a day, 05:00 UTC-5.
-* Next: task 3 scoring + advisory generation in the same run.
-
-## 7. ML and GenAI
-
-* ML model: gradient boosting classifier for P(extreme event within 72h) per location and
-  hazard (heavy rain, heat, wind). Features: forecast values, recent 7/30-day anomalies,
-  ENSO phase, location attributes, citizen-reported impacts. Tracked in MLflow, registered in
-  UC, served on a Model Serving endpoint. Baseline comparison vs simple threshold rules.
-* Optional: forecast bias correction using observed data and citizen feedback.
-* GenAI: open-weight, low-cost model on Foundation Model APIs via AI Gateway (decided):
-  `databricks-qwen3-next-80b-a3b-instruct` (MoE, ~3B active params: cheap, good Spanish),
-  fallback `databricks-gpt-oss-20b`. Both smoke-tested on a Spanish farmer advisory.
-  Turns gold summary + risk + ENSO into advisories per user type and language.
-* Cost control: generate per cell-day-language-user_type in batch (`ai_query`) and cache
-  in `gold.advisories`; generate only for cells with users or elevated risk.
-* Guardrails: no invented numbers or causal claims (e.g. smoke test attributed rain to La
-  Nina), values injected from gold. Evaluated with MLflow judges on a sample.
-
-## 8. Lakebase - operational serving
-
-* Lakebase project with synced tables from `gold.location_weather_summary`, `gold.risk_scores`,
-  `gold.advisories` for low-latency app reads.
-* Native OLTP tables: `user_profile` (location, language, user type), `citizen_feedback`
-  (location, date, observed condition, forecast rating 1-5, sentiment/free text).
-* Feedback written by the app is synced to `bronze.citizen_feedback_raw` (scheduled job or
-  Lakehouse sync) and flows through silver/gold into model retraining and skill metrics.
-
-## 9. Genie Agent
-
-Genie space over gold tables for agency analysts, with instructions and sample questions, e.g.
-"Which towns had the most flood reports during El Nino months?", "How accurate was the
-forecast vs citizen reports last week in Costa Rica?". Separate from the app.
-
-## 10. Databricks App
-
-* Location selection: search city/town, pick on map, or enter coordinates (nearest grid point).
-* Views: past 11 days, today, next 11 days; risk badges per hazard; ENSO card;
-  personalized advisory (language + user type); feedback form (writes to Lakebase).
-* Framework (decided): Dash (Plotly) + dash-leaflet maps. Python only, explicit callbacks,
-  multi-page; runs on Flask/gunicorn so it scales horizontally, and REST routes on the same
-  server can later feed SMS/mobile channels. Chosen over FastAPI + React: similar scalability
-  for this load, far fewer files (30-file scorer limit) and easier to change.
-* Auth via app service principal; Lakebase via OAuth tokens.
-
-## 11. Repo and DAB layout
-
-Path: `e2e_industry_solutions/weather_forecast_warning_comms/`
-
-Folder layout: README.md (repository layout).
-
-FE Bar scorer limits: max 30 files, 9,000 chars/file, 90,000 chars total -> keep code files
-concise, put key evidence in small text files. No secrets: use secret scopes / service principals.
-
-## 12. Evidence plan
-
-Notebook outputs, pipeline update summary, model metrics, advisories (2 languages x 3 user
-types), Lakebase feedback round trip, Genie Q&A samples, app walkthrough.
-
-## 13. Phases
+## 8. Phases
 
 | # | Phase | Done when |
 | --- | --- | --- |
-| 1 | Foundation: catalog, schemas, volume, bundle skeleton (done) | `bundle validate` passes |
-| 2 | Ingestion + SDP medallion (done) | Gold tables populated for all 5 countries |
-| 3 | ML model + serving | Endpoint returns scores; beats rules baseline |
-| 4 | LLM advisories | Advisories in ES/EN for 3 user types, evaluated |
-| 5 | Lakebase + feedback sync | App feedback appears in silver/gold |
-| 6 | App + Genie | End-to-end demo works for a chosen town |
-| 7 | Evidence, README, deck, push | Repo meets scorer limits, no secrets |
+| 1 | Foundation (done) | `bundle validate` passes |
+| 2 | Ingestion + SDP medallion (done) | Gold populated for all 5 countries |
+| 3 | Risk flags + advisories | Advisories in ES/EN for 3 user types, sample reviewed |
+| 4 | Lakebase + app | Feedback sent from the app lands in Lakebase for a chosen town |
+| 5 | Genie + governance | Genie answers the sample questions; tags and grant applied |
+| 6 | Evidence, deck, push | Scorer limits met (30 files, 9k chars/file, 90k total), no secrets |
 
-## 14. Key decisions and trade-offs
+## 9. Open items
 
-See DECISIONS.md (decision log with alternatives and rationale).
-
-## 15. Open items
-
+* Confirm the LLM endpoints exist in the new workspace before phase 3.
+* File budget: 24 of 30 used. Removing the ERA5 backfill code (`history_lib.py`,
+  `backfill_sources`, `backfill.job.yml`) from the submitted folder would free 3 files (~11k chars).
 * Confirm Open-Meteo free-tier terms (non-commercial) fit the demo use.
+
+Decisions and trade-offs: DECISIONS.md. Architecture and data model: ARCHITECTURE.md.
