@@ -455,6 +455,20 @@
     "benchmarks": {
       "questions": [
         {
+          "id": "b5000000000000000000000000000015",
+          "question": [
+            "How many new, churned and net new customers did each segment have over the last 3 complete months?"
+          ],
+          "answer": [
+            {
+              "format": "SQL",
+              "content": [
+                "SELECT `segment`, MEASURE(`new_customers`) AS new_customers, MEASURE(`churned_customers`) AS churned_customers, MEASURE(`net_new_customers`) AS net_new_customers FROM saas_demo.gold.revenue_monthly_metrics WHERE `month` >= add_months(trunc(current_date(), 'MM'), -3) GROUP BY ALL ORDER BY net_new_customers DESC"
+              ]
+            }
+          ]
+        },
+        {
           "id": "b5000000000000000000000000000014",
           "question": [
             "What was recognized revenue in the last 91 days and in the 91 days before that?"

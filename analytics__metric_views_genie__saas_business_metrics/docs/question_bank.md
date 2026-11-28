@@ -4,6 +4,7 @@ Values were checked on 2026-11-17 (last complete month = Oct 2026). Rates are mo
 over several months they are pooled monthly averages. Ambiguous questions have two valid answers
 and are intentionally NOT used as Genie Agent benchmarks (a benchmark has one ground truth, so it would
 penalize the Genie Agent for correctly asking "logo or revenue churn?").
+Definitions of every measure used below: [`metric_dictionary.md`](metric_dictionary.md).
 
 ## Audience A - Finance / RevOps (`gold.revenue_monthly_metrics`)
 

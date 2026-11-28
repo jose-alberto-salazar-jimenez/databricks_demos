@@ -1,8 +1,48 @@
 # Discover setup - Revenue domain, subdomains and Pages
 
-Exact content of the Discover objects used in this demo (as of 2026-11-20): one domain, two subdomains and 10 Pages.
+Exact content of the Discover objects used in this demo (content as of 2026-11-20, status as of 2026-11-27): one domain, two subdomains and 10 Pages.
 Discover objects are not deployable from SQL, so create them in the UI (or with the Beta domains API) using
-the values below. Domain sections feature the metric views and both Genie Agents.
+the values below. Domain sections feature the metric views, both Genie Agents and the SaaS Revenue Cockpit dashboard.
+The Pages cover the 10 key business terms; every other measure and column is defined in [`metric_dictionary.md`](metric_dictionary.md).
+
+Official documentation (Databricks on AWS): [Domains and subdomains](https://docs.databricks.com/aws/en/uc-semantics/domains/),
+[Pages](https://docs.databricks.com/aws/en/uc-semantics/pages/), [Discover page](https://docs.databricks.com/aws/en/discover/discover-page/),
+[Organize assets with domains, subdomains, and Pages](https://docs.databricks.com/aws/en/getting-started/starter-journey/genie-ontology/domains-subdomains-pages/) (tutorial),
+[Governed tags](https://docs.databricks.com/aws/en/admin/governed-tags/index/),
+[Flag data as certified or deprecated](https://docs.databricks.com/aws/en/data-governance/unity-catalog/certify-deprecate-data/).
+
+## Current state (2026-11-27)
+
+Discover domains, subdomains and Pages are **account-level** objects: they survived the deletion of the original
+(Azure) workspace and are reused by the redeploy on the AWS workspace.
+
+| Object | ID | Status |
+| --- | --- | --- |
+| Domain Revenue | `70fa21d3-874c-41fd-b954-854d4d9b428c` | Published |
+| Subdomain RecurringRevenue | `1190608e-29b9-488e-be25-ee09b2d815d5` | Published |
+| Subdomain CustomerHealth | `f7006ec9-c5e9-4d02-996e-8058290c10bc` | Published |
+| Page MRR | `7fc5ecb9-8e90-4614-8473-0fe8b62297fe` | Published 2026-11-27 |
+| Page ARR | `1c7e3c00-22ee-43e8-945a-22d11c70f933` | Published 2026-11-27 |
+| Page Revenue churn | `5a562463-8d1d-4e6d-bbe8-213856f3096a` | Published 2026-11-27 |
+| Page Net revenue retention | `d90241d2-d1e3-4228-a8cf-4b2c12bc2d94` | Published 2026-11-27 |
+| Page MRR growth YoY | `c4d6af93-0384-4ddb-9fbd-b48ded474b40` | Published 2026-11-27 |
+| Page Annualized NRR | `168fe0c9-8ab3-48d7-93d3-285337bb6780` | Published 2026-11-27 |
+| Page Logo churn | `c06c60d2-70a2-40f4-a1ac-a07fbb8fefbd` | Published 2026-11-27 |
+| Page ARPA | `545407d5-add3-49c3-8d13-a0824d916087` | Published 2026-11-27 |
+| Page Active customer | `2021e912-abcf-4df2-ae1c-dfcab5b3aa92` | Published 2026-11-27 |
+| Page Cohort retention | `667e3146-8ede-40b7-a476-955d911f4275` | Published 2026-11-27 |
+
+API notes (all through the workspace REST API):
+* Find the domain: `GET /api/2.0/domains` and match `tag_key` (`Revenue`, `Revenue/...`).
+* List its Pages: `GET /api/2.0/knowledge/pages?filter=domain = "domains/<domain_id>"` (includes subdomains). The API reports all 10 Pages under the parent domain Revenue; check the subdomain grouping in the UI.
+* Publish a Page: `PATCH /api/2.0/knowledge/pages/<page_id>?update_mask=state` with `{"state": "PUBLISHED"}`.
+* Link a table to a Page: `POST /api/2.0/knowledge/pages/<page_id>/asset-link-categories/RELATED_ASSETS/asset-links` with `asset_type: ASSET_TYPE_UC_TABLE`, `asset_scope_id: <metastore id>` and `asset_id: catalog.schema.table`. Linking the same asset twice returns the existing link. Links cannot be listed through the API.
+
+After a redeploy on another metastore:
+* Page links to tables are scoped to a metastore, so the old links do not resolve. On 2026-11-27 each Page was re-linked to its linked assets below in metastore `0923c360-3863-4cc0-b903-0c683a308411` (11 links). Remove the dead links from the old metastore in the UI (Page > Related assets).
+* Domain sections that feature Genie Agents or the dashboard still point to the old workspace's assets; update them in the UI (there is no sections API). Current assets: Genie Agent "Revenue and Retention" `01f1eab2220711e696cf037eeaa641bb`, Genie Agent "Customer Success" `01f1eab2231919548321555c6fa8b566`, dashboard "SaaS Revenue Cockpit" `01f1eab2244e1bff96815c84cd516600`.
+
+The Page texts below were not changed by the 2026-11-27 work. `revenue_monthly_metrics` now also has `active_customers` and `arpa` by month; the Active customer and ARPA Pages still point only to `customer_health_metrics` (the current base).
 
 ## Prerequisites
 
@@ -21,7 +61,7 @@ the values below. Domain sections feature the metric views and both Genie Agents
 UI steps:
 1. Discover > **Create domain** > select the existing governed tag `Revenue` > fill Subtitle and Description > **Create** (stays draft).
 2. Open **Revenue** > **Create subdomain** > **Use an existing tag** > `Revenue/RecurringRevenue` > fill fields > **Create**. Repeat for `Revenue/CustomerHealth`.
-3. **Edit Sections** to feature the metric views and both Genie Agents (RecurringRevenue: `revenue_monthly_metrics` + Genie Agent "Revenue and Retention"; CustomerHealth: `customer_health_metrics` + Genie Agent "Customer Success"). **Publish** after review.
+3. **Edit Sections** to feature the metric views, both Genie Agents and the dashboard (RecurringRevenue: `revenue_monthly_metrics` + Genie Agent "Revenue and Retention"; CustomerHealth: `customer_health_metrics` + Genie Agent "Customer Success"; the SaaS Revenue Cockpit dashboard spans both). **Publish** after review.
 
 Note: creating a domain through the API published it immediately (`isDraft: false`); set it back to draft if you want a review step.
 
@@ -176,7 +216,11 @@ Query `saas_demo.gold.signup_cohort_retention_monthly` filtered on `months_since
 
 ## Setup checklist
 
-- [ ] Domain and both subdomains created with the subtitles and descriptions above
-- [ ] 10 Pages created (check Related assets in the UI; an API read-back may list only one linked asset per Page)
-- [ ] Domain sections feature both metric views and both Genie Agents
-- [ ] Publish domain, subdomains, then Pages
+Status as of 2026-11-27:
+
+- [x] Domain and both subdomains created with the subtitles and descriptions above (published)
+- [x] 10 Pages created (check Related assets in the UI; an API read-back may list only one linked asset per Page)
+- [x] Pages re-linked to the tables in the current metastore (11 links)
+- [ ] Dead links from the old metastore removed from each Page (UI)
+- [ ] Domain sections feature both metric views, both Genie Agents and the dashboard, using the current asset IDs (UI)
+- [x] Publish domain, subdomains, then Pages
