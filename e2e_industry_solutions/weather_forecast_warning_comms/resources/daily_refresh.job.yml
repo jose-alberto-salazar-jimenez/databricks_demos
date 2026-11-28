@@ -21,13 +21,13 @@ resources:
         - name: sources
           default: reference,enso,gdacs,forecast
         - name: past_days
-          default: "1" # yesterday; past 11 days are assembled from stored runs (backfill: 11)
+          default: "1" # yesterday; the past 11 days are assembled from stored runs
         - name: forecast_days
           default: "12" # today + 11 days ahead (13 days total = 1 Open-Meteo call per point)
       tasks:
         - task_key: ingest_sources
           notebook_task:
-            notebook_path: ../src/ingestion/ingest_sources.ipynb
+            notebook_path: ../src/ingestion/ingest_sources.py
             base_parameters:
               catalog: ${var.catalog}
               schema: ${var.bronze_schema}

@@ -28,6 +28,15 @@ How to use:
   fallback `system.ai.gpt-oss-20b`) and are passed to the pipeline configuration.
 * PLAN.md rewritten as the PoC scope: every FE Bar stage at its smallest working size, GenAI
   advisories on rule-based risk flags, deferred items with reasons (DECISIONS.md #15).
+* `ingest_sources` notebook in source format (`.py`, same cells; was `.ipynb`).
+* ARCHITECTURE.md and README.md describe the PoC as built (no model endpoint, risk scores,
+  feedback sync or column masks); evidence for phases 1-2 merged into one file.
+
+### Removed
+
+* History backfills (FE Bar size limits): `history_lib.py`, `backfill_sources`, `backfill.job.yml`,
+  the `backfill_*` variables and the ERA5 source entry; last version in commit 7a9aad3.
+* `evidence/phase3_pipeline.md`, merged into `evidence/phase1_2_foundation_ingestion.md`.
 
 ## [1.3.0] - 2026-11-28
 

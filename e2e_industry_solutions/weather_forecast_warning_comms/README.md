@@ -14,13 +14,13 @@ Seasonal ENSO risk (El Nino / La Nina) is rarely translated into local, practica
 
 ## What the solution does
 
-A citizen, farmer or municipal officer picks a city, town, map point or coordinates and gets:
+A citizen, farmer or municipal officer picks a town and gets:
 
-* The last 11 days, today, and the next 11 days (rain, temperature, wind).
-* Risk of extreme events in the next 72 hours (ML model) and the current ENSO phase.
+* Yesterday, today and the next 11 days (rain, temperature, wind); the past 11 days build up from daily runs.
+* Heavy-rain, heat and wind warnings for the next 3 days (rule-based) and the current ENSO phase.
 * A preventive advisory written for their user type and language (LLM).
-* A form to report what they actually experienced and how they rate the forecast. This
-  citizen data flows back into the lakehouse to measure forecast skill and tune the model.
+* A form to report what they experienced and rate the forecast, stored in Lakebase (later:
+  forecast skill metrics and a trained risk model; see PLAN.md section 7).
 
 Agency analysts ask questions in natural language through a Genie Agent over the gold tables.
 
@@ -29,9 +29,8 @@ Agency analysts ask questions in natural language through a Genie Agent over the
 | Stage | Capability | Role |
 | --- | --- | --- |
 | Ingest | Lakeflow Jobs + Spark Declarative Pipelines | Daily API landing, bronze/silver/gold |
-| Govern | Unity Catalog | Catalog `weather_forecast_warnings_comms`, lineage, tags, masks, grants |
-| Intelligence | MLflow + Model Serving | Extreme-event risk model (72h) |
-| Intelligence | Foundation Model APIs via AI Gateway | Multilingual, user-type advisories |
+| Govern | Unity Catalog | Catalogs per environment, lineage, tags, grants |
+| Intelligence | `ai_query` on `system.ai` models | Multilingual, user-type advisories with a numbers guardrail |
 | Serve | Lakebase | Low-latency app reads, citizen feedback writes |
 | Ask | Genie Agent | Natural-language analytics for agency analysts |
 | Surface | Databricks Apps (Dash) | Citizen-facing application |
@@ -39,9 +38,9 @@ Agency analysts ask questions in natural language through a Genie Agent over the
 
 ## Data (public or synthetic only)
 
-Open-Meteo (history + forecast), NOAA CPC ONI (ENSO), GDACS (extreme-event alerts),
-GeoNames (towns), and synthetic impact history and citizen feedback. No customer data and
-no credentials are stored in this repository.
+Open-Meteo (forecast), NOAA CPC ONI (ENSO), GDACS (extreme-event alerts), GeoNames (towns),
+Natural Earth (boundaries, lakes) and demo citizen feedback. No customer data and no
+credentials are stored in this repository.
 
 ## Documentation
 
@@ -57,10 +56,9 @@ no credentials are stored in this repository.
 ```
 weather_forecast_warning_comms/
   databricks.yml      Bundle definition (dev / prod targets)
-  resources/          Jobs, pipeline, serving endpoint, app, Lakebase
+  resources/          Job, pipeline, volume, app, Lakebase
   src/ingestion/      API landing to the UC volume
   src/pipeline/       SDP bronze / silver / gold
-  src/ml/             Risk model training + advisory generation
   src/app/            Dash application
   evidence/           Run outputs as text
   *.md                Documentation

@@ -1,7 +1,7 @@
 # System Architecture
 
 How the solution and the codebase are structured. Diagrams use Mermaid (rendered by GitHub).
-Status: target design for v1.x; sections are updated as components are built.
+Status: PoC design (PLAN.md); deferred parts are listed in PLAN.md section 7.
 
 ## 1. Context
 
@@ -23,26 +23,19 @@ flowchart TB
   end
   subgraph Medallion[Spark Declarative Pipeline]
     b[bronze: raw streaming tables] --> s[silver: cleaned, conformed, location-matched]
-    s --> g[gold: summaries, skill, risk features]
+    s --> g[gold: summary + risk flags]
+    g --> adv[gold.advisories via ai_query, system.ai LLM]
   end
   vol --> b
-  g --> train[src/ml: train risk model - MLflow + UC registry]
-  train --> serve[Model Serving endpoint]
-  serve --> scores[gold.risk_scores]
-  g --> llm[ai_query via AI Gateway - open LLM]
-  scores --> llm
-  llm --> adv[gold.advisories]
   g --> genie[Genie Agent]
   subgraph Lakebase[Lakebase Postgres]
-    synced[synced tables: summary, risk, advisories]
-    oltp[user_profile, citizen_feedback]
+    synced[synced tables: summary, advisories]
+    oltp[citizen_feedback]
   end
   g --> synced
-  scores --> synced
   adv --> synced
   synced --> app[Dash app]
   app --> oltp
-  oltp -->|daily sync| b
 ```
 
 ## 3. Daily run sequence
@@ -55,19 +48,14 @@ sequenceDiagram
   participant API as Public APIs
   participant V as UC Volume
   participant P as SDP pipeline
-  participant M as Model endpoint
-  participant L as LLM (AI Gateway)
+  participant L as LLM (system.ai)
   participant LB as Lakebase
-  J->>LB: export new citizen feedback to bronze
   J->>API: fetch 8,041 grid points (yesterday + today + 11d, 10 daily vars), ONI, GDACS
   API-->>V: JSON files (one folder per source/date)
-  J->>P: update bronze -> silver -> gold
-  J->>M: score risk per cell and hazard
-  J->>L: generate advisories (cell x language x user type)
+  J->>P: update bronze -> silver -> gold (risk flags)
+  P->>L: advisories: 109 towns x 2 languages x 3 user types
   J->>LB: refresh synced tables
 ```
-
-Retraining runs weekly as a separate task once enough feedback and events accumulate.
 
 ## 4. Data model (Unity Catalog)
 
@@ -75,13 +63,11 @@ Catalog `weather_forecast_warnings_comms`, schemas `bronze`, `silver`, `gold`.
 
 ```mermaid
 erDiagram
-  dim_location ||--o{ weather_observed_daily : cell_id
   dim_location ||--o{ weather_forecast_daily : cell_id
-  dim_location ||--o{ extreme_events : cell_id
-  dim_location ||--o{ citizen_feedback : cell_id
-  dim_location ||--o{ risk_scores : cell_id
-  dim_location ||--o{ advisories : cell_id
-  enso_phase_monthly ||--o{ risk_features : month
+  dim_location ||--|| location_weather_summary : cell_id
+  dim_location ||--o{ dim_town : cell_id
+  dim_town ||--o{ advisories : town_id
+  dim_town ||--o{ citizen_feedback : town_id
   dim_location {
     string cell_id PK
     string country
@@ -89,26 +75,21 @@ erDiagram
     double lon
     int grid_km
   }
-  risk_scores {
-    string cell_id
-    date run_date
-    string hazard
-    double p_72h
-  }
   advisories {
-    string cell_id
+    bigint town_id
     date run_date
     string language
     string user_type
     string advisory_text
+    boolean numbers_ok
   }
 ```
 
 * Grain: one row per grid cell per day (forecasts: per cell, run date, target date).
 * `cell_id`: deterministic id from rounded lat/lon and grid size (20 km PE/CO/EC, 10 km CR/PA).
-* Towns (GeoNames) map to their nearest `cell_id`; any coordinate resolves the same way.
-* Governance: comments on all tables, tags (`domain`, `pii`), column mask on feedback
-  contact fields, app service principal has SELECT on gold only.
+* Towns (GeoNames, 109 main towns) map to their nearest `cell_id`.
+* Governance: comments on all tables, tags (`domain`, `pii`), app service principal has
+  SELECT on gold only (column masks: roadmap).
 
 ### Data sources and lineage
 
@@ -121,24 +102,18 @@ so each value shows where it came from.
 | data_source | request_mode | Landing folder | Used for |
 | --- | --- | --- | --- |
 | `open_meteo_forecast` | `daily` | `open_meteo_forecast/run_date=` | today + 11 days; yesterday builds the past 11 days |
-| `open_meteo_forecast` | `backfill_recent` | `open_meteo_forecast_backfill/run_date=` | one-off past 11 days, all cells |
-| `open_meteo_era5` | `backfill_history` | `open_meteo_era5/year=` | 2-year history for a cell sample (ML) |
-| `gdacs` | `daily` / `backfill_history` | `gdacs/`, `gdacs_history/` | extreme events, history sample selection |
-| `noaa_cpc_oni`, `geonames`, `natural_earth` | - | `enso_oni/`, `geonames/`, `reference/` | ENSO phase, towns, land grid |
-
-When sources overlap for a cell and date, silver keeps all rows; gold picks observed-like values
-by priority ERA5 > forecast-API past days, and exposes the chosen `data_source`.
+| `gdacs` | `daily` | `gdacs/` | extreme events |
+| `noaa_cpc_oni`, `geonames`, `natural_earth(_lakes)` | - | `enso_oni/`, `geonames/`, `reference/` | ENSO phase, towns, land grid |
 
 ## 5. Codebase structure
 
 | Path | Responsibility | Runs on |
 | --- | --- | --- |
 | `databricks.yml` | Bundle root: variables (catalog, schemas), dev/prod targets | CLI |
-| `resources/*.yml` | Job, pipeline, serving endpoint, app, Lakebase definitions | Bundle deploy |
-| `src/ingestion/` | Notebooks `ingest_sources` (daily) and `backfill_sources` (manual); modules `source_registry.py` (sources, licenses, tags), `ingest_lib.py` (retry, rate limiter, Open-Meteo), `context_lib.py` (grid, GeoNames, ENSO, GDACS), `history_lib.py` (ERA5 sample) | Serverless jobs |
+| `resources/*.yml` | Job, pipeline, volume, app, Lakebase definitions | Bundle deploy |
+| `src/ingestion/` | Notebook `ingest_sources.py` (daily); modules `source_registry.py` (sources, licenses, tags), `ingest_lib.py` (retry, rate limiter, Open-Meteo), `context_lib.py` (grid, GeoNames, ENSO, GDACS) | Serverless job |
 | `src/pipeline/` | SDP SQL: `bronze/raw_sources.sql` (all raw streaming tables), one file per dataset in `silver/`, `gold/`; pipeline default schema is bronze, silver/gold names are schema-qualified via pipeline configuration | Serverless pipeline |
-| `src/ml/` | Features, training, registration, batch scoring, advisory prompts | Serverless job |
-| `src/app/` | Dash pages, callbacks, Lakebase data access | Databricks Apps |
+| `src/app/` | One-page Dash app, Lakebase reads and feedback writes | Databricks Apps |
 | `evidence/` | Text outputs that prove each stage ran | Committed manually |
 
 Conventions: lowercase snake_case names; configuration through bundle variables, never
@@ -148,7 +123,7 @@ hard-coded workspace ids; one module per concern; files kept under 9,000 charact
 
 ```mermaid
 flowchart LR
-  ui[Dash layout: search, map, charts, advisory, feedback form] --> cb[callbacks]
+  ui[Dash layout: town picker, 13-day chart, warnings, advisory, feedback form] --> cb[callbacks]
   cb --> dal[data access layer]
   dal -->|read| synced[(Lakebase synced tables)]
   dal -->|insert| fb[(Lakebase citizen_feedback)]
@@ -157,7 +132,7 @@ flowchart LR
 * Stateless app instances behind Databricks Apps; scales by adding instances.
 * Reads hit Lakebase only (no SQL warehouse on the request path).
 * Auth: app service principal with OAuth tokens to Lakebase; no secrets in code.
-* Language and user type come from the user profile or the UI selector.
+* Language and user type come from UI selectors; only `numbers_ok` advisories are shown.
 
 ## 7. Environments and deployment
 
@@ -178,9 +153,8 @@ Flow: feature branch -> PR (bundle validate in CI) -> merge to main -> deploy pr
   One location = 1 call only while <=10 variables and <=14 days, so the request stays at that size;
   the ingestion notebook rate-limits to 550/min and 4,800/hour (full grid ~1h45m) and stops a
   run whose weighted calls would exceed `daily_call_budget` (9,500).
-* Horizon +/- 11 days: each daily run stores yesterday + today + 11 days ahead; gold builds the
-  past 11 days from stored runs (observed-like `yesterday` values). A one-off backfill run
-  (`past_days=11, forecast_days=1`, 12 days = 1 call/point) seeds history before the first week.
+* Horizon +/- 11 days: each daily run stores yesterday + today + 11 days ahead; the past 11 days
+  build up from stored runs (observed-like `yesterday` values).
 * Reliability: idempotent daily loads keyed by run date; failed days can be re-run.
-* Quality: SDP expectations (coordinates, ranges, nulls); model compared to rule baseline.
-* LLM safety: values injected from gold, no invented numbers or causes, sampled evaluation.
+* Quality: SDP expectations (coordinates, ranges, nulls, advisory numbers).
+* LLM safety: values injected from gold; `numbers_ok` rejects other numbers; sample reviewed.
