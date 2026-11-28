@@ -52,7 +52,7 @@ targets:
     mode: development
     default: true
     workspace:
-      host: https://dbc-479a6e47-2e48.cloud.databricks.com
+      host: https://dbc-9ce31297-2bf5.cloud.databricks.com
     variables:
       catalog: weather_forecast_warnings_comms_dev
 
@@ -61,7 +61,7 @@ targets:
     # service principal (see CHANGELOG / ARCHITECTURE section 7).
     mode: production
     workspace:
-      host: https://dbc-479a6e47-2e48.cloud.databricks.com
+      host: https://dbc-9ce31297-2bf5.cloud.databricks.com
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
       catalog: weather_forecast_warnings_comms

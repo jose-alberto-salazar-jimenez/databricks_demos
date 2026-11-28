@@ -5,7 +5,7 @@ location-specific, multilingual, preventive communications, with a citizen-feedb
 Scoped to meet the FE Bar build requirements (Lakeflow, Unity Catalog, Lakebase, ML/GenAI,
 Genie Agent, Databricks App, evidence readable as text, public/synthetic data only, no secrets).
 
-Status: PLAN (v0.2, 2026-11-11). Refresh, coverage, app framework and LLM decided.
+Status: phases 1-2 built in dev (ingestion + medallion pipeline, full grid); see CHANGELOG.md.
 
 ## 1. Customer problem (industry framing)
 
@@ -26,13 +26,12 @@ Peru/Ecuador, dries Colombia and the Pacific side of Costa Rica/Panama (Dry Corr
 Languages: Spanish, English (extensible).
 
 Coverage (decided): land grid + all towns/cities.
-* Grid: 20 km for PE/CO/EC (6,788 points), 10 km for CR/PA (1,272 points), land only.
-  Counted in phase 2 with a Natural Earth land mask.
+* Grid: 20 km for PE/CO/EC (6,774 cells), 10 km for CR/PA (1,267), land only, lakes excluded
+  (8,041 total; measured, see DECISIONS.md #4 and #11).
 * Towns: all GeoNames populated places (CC-BY), each mapped to its nearest grid cell, so any
   town or coordinate resolves to a cell.
-* Budget: 8,060 points/day fits Open-Meteo's free tier (10,000 calls/day, non-commercial).
-  1 call/point (<=10 vars, <=14 days): +/-11 days (past from stored runs); deep history (ERA5
-  archive) is a one-off backfill spread over several days.
+* Budget: fits Open-Meteo's free tier at 1 call/point; limits and horizon in ARCHITECTURE.md
+  section 8, backfills in DECISIONS.md #12.
 
 ## 3. Data sources (all public or synthetic, no API keys)
 
@@ -45,24 +44,17 @@ Coverage (decided): land grid + all towns/cities.
 | Synthetic (Python/LLM) | Event impact history, citizen feedback seed | Labels, demo realism |
 | Lakebase (app) | Live citizen feedback, user profiles | Citizen data loop |
 
-Note: repo already has `api_autoloader__data_eng__open_meteo_weather`; its landing logic can be
-adapted (own prior work), but this project is self-contained.
+Related prior work in this repo: `api_autoloader__data_eng__open_meteo_weather` (not a dependency).
 
 ## 4. Architecture (one integrated data journey)
 
-```
-APIs -> UC Volume -> Lakeflow SDP: bronze -> silver -> gold
- gold -> Genie Agent (analysts)
- gold -> ML (MLflow, UC) -> Serving endpoint
- gold -> LLM advisories (AI Gateway) -> gold.advisories
- gold -> synced tables -> Lakebase -> Databricks App
-App feedback -> Lakebase -> sync -> bronze -> silver/gold -> retraining
-```
+APIs -> volume -> SDP bronze/silver/gold -> ML, LLM advisories, Genie, Lakebase -> app; app
+feedback flows back to bronze. Diagrams: ARCHITECTURE.md sections 2-3.
 
 ## 5. Unity Catalog layout
 
-Catalog: `weather_forecast_warnings_comms` (created). Schemas: `bronze`, `silver`, `gold` (created).
-Volume: `bronze.landing` for raw API files.
+Catalogs `weather_forecast_warnings_comms` (prod) and `..._dev` (dev), schemas `bronze`, `silver`,
+`gold`, volume `bronze.landing`. Built tables: ARCHITECTURE.md section 4 and `src/pipeline/`.
 
 | Layer | Tables (planned) |
 | --- | --- |
@@ -76,11 +68,9 @@ Data quality: SDP expectations (valid coordinates, plausible ranges, non-null da
 
 ## 6. Ingestion - Lakeflow
 
-* Lakeflow Job task 1: Python notebook calls APIs per location, writes JSON to the volume.
-* Task 2: Spark Declarative Pipeline (SQL/Python) - `read_files` streaming tables in bronze,
-  materialized views in silver/gold, expectations for quality.
-* Task 3: scoring + advisory generation. Schedule: once per day (decided), early morning
-  local time (UTC-5), after the main model runs are published.
+* Built: `daily_refresh` job, task 1 landing notebook, task 2 SDP pipeline (`read_files`
+  streaming tables, materialized views, expectations). Once a day, 05:00 UTC-5.
+* Next: task 3 scoring + advisory generation in the same run.
 
 ## 7. ML and GenAI
 
@@ -128,16 +118,7 @@ forecast vs citizen reports last week in Costa Rica?". Separate from the app.
 
 Path: `e2e_industry_solutions/weather_forecast_warning_comms/`
 
-```
-databricks.yml             # bundle, dev/prod targets
-resources/                 # pipeline, jobs, serving endpoint, app, lakebase, genie notes
-src/ingestion/             # API landing notebook
-src/pipeline/              # SDP bronze/silver/gold
-src/ml/                    # training, registration, advisory generation
-src/app/                   # Databricks App
-evidence/                  # run outputs as text (<9k chars per file)
-README.md, ARCHITECTURE.md, PLAN.md, DECISIONS.md, CHANGELOG.md
-```
+Folder layout: README.md (repository layout).
 
 FE Bar scorer limits: max 30 files, 9,000 chars/file, 90,000 chars total -> keep code files
 concise, put key evidence in small text files. No secrets: use secret scopes / service principals.
@@ -151,8 +132,8 @@ types), Lakebase feedback round trip, Genie Q&A samples, app walkthrough.
 
 | # | Phase | Done when |
 | --- | --- | --- |
-| 1 | Foundation: catalog, schemas, volume, bundle skeleton | `bundle validate` passes |
-| 2 | Ingestion + SDP medallion | Gold tables populated for all 5 countries |
+| 1 | Foundation: catalog, schemas, volume, bundle skeleton (done) | `bundle validate` passes |
+| 2 | Ingestion + SDP medallion (done) | Gold tables populated for all 5 countries |
 | 3 | ML model + serving | Endpoint returns scores; beats rules baseline |
 | 4 | LLM advisories | Advisories in ES/EN for 3 user types, evaluated |
 | 5 | Lakebase + feedback sync | App feedback appears in silver/gold |

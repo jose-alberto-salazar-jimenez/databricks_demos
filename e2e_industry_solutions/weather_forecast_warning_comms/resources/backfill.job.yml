@@ -1,5 +1,5 @@
 # Backfills. Run on days WITHOUT the full daily_refresh run (free tier 10k/day).
-#   mode=recent : forecast-API past 11 days + today for every cell (8,060 calls, one run)
+#   mode=recent : forecast-API past 11 days + today for every cell (8,041 calls, one run)
 #   mode=history: ERA5 reanalysis for a sample of cells; capped by max_calls, re-run to resume
 # Optional daily schedule (backfill_pause_status) resumes history once a day during a backfill
 # window. Runs after completion skip every batch (no API calls), so an extra run is harmless.

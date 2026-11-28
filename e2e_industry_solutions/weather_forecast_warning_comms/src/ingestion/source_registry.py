@@ -8,6 +8,9 @@ visible in silver and gold (e.g. observed history from ERA5 vs forecast-API past
 GRID_STEP = {"PER": 0.18, "ECU": 0.18, "COL": 0.18, "PAN": 0.09, "CRI": 0.09}  # ~20 km / ~10 km
 ISO2 = {"PER": "PE", "ECU": "EC", "COL": "CO", "PAN": "PA", "CRI": "CR"}
 NAMES = {"PER": "Peru", "ECU": "Ecuador", "COL": "Colombia", "PAN": "Panama", "CRI": "Costa Rica"}
+# v2: land cells minus Natural Earth 10m lakes (models give lake-surface values, e.g. Titicaca ~-10 C).
+# Keep in sync with src/pipeline/silver/dim_location.sql.
+GRID_DIR = "reference/grid_cells_v2"
 
 # Forecast API: keep <= 10 variables so one location stays one call.
 DAILY_VARS = ["weather_code", "temperature_2m_max", "temperature_2m_min", "apparent_temperature_max",
@@ -45,7 +48,13 @@ SOURCES = {
         "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
                "ne_10m_admin_0_countries.geojson",
         "license": "Public domain", "resolution": "1:10m", "kind": "boundaries, land mask",
-        "landing_dirs": ["reference/natural_earth", "reference/grid_cells"]},
+        "landing_dirs": ["reference/natural_earth", GRID_DIR]},
+    "natural_earth_lakes": {
+        "provider": "Natural Earth", "product": "Lakes 1:10m",
+        "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/"
+               "ne_10m_lakes.geojson",
+        "license": "Public domain", "resolution": "1:10m", "kind": "lakes, removed from the land grid",
+        "landing_dirs": ["reference/natural_earth"]},
 }
 
 REQUEST_MODES = ("daily", "backfill_recent", "backfill_history")

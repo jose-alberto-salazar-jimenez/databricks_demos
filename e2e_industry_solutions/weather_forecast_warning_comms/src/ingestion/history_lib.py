@@ -17,7 +17,7 @@ def select_history_cells(spark, root, countries, start, end, ingested_at, per_co
     if not os.path.exists(out):
         ctx.land_gdacs(root, end, countries, ingested_at, start=start,
                        request_mode="backfill_history", subdir="gdacs_history")
-        spark.read.json(f"{root}/reference/grid_cells").createOrReplaceTempView("grid")
+        spark.read.json(f"{root}/{reg.GRID_DIR}").createOrReplaceTempView("grid")
         ev = spark.read.json(f"{root}/gdacs_history/run_date={end}")
         if "geometry" not in ev.columns:  # only no_events markers landed
             ev = spark.createDataFrame([], "type string, properties struct<eventid:long, eventtype:string>, "

@@ -59,7 +59,7 @@ sequenceDiagram
   participant L as LLM (AI Gateway)
   participant LB as Lakebase
   J->>LB: export new citizen feedback to bronze
-  J->>API: fetch 8,060 grid points (yesterday + today + 11d, 10 daily vars), ONI, GDACS
+  J->>API: fetch 8,041 grid points (yesterday + today + 11d, 10 daily vars), ONI, GDACS
   API-->>V: JSON files (one folder per source/date)
   J->>P: update bronze -> silver -> gold
   J->>M: score risk per cell and hazard
@@ -136,7 +136,7 @@ by priority ERA5 > forecast-API past days, and exposes the chosen `data_source`.
 | `databricks.yml` | Bundle root: variables (catalog, schemas), dev/prod targets | CLI |
 | `resources/*.yml` | Job, pipeline, serving endpoint, app, Lakebase definitions | Bundle deploy |
 | `src/ingestion/` | Notebooks `ingest_sources` (daily) and `backfill_sources` (manual); modules `source_registry.py` (sources, licenses, tags), `ingest_lib.py` (retry, rate limiter, Open-Meteo), `context_lib.py` (grid, GeoNames, ENSO, GDACS), `history_lib.py` (ERA5 sample) | Serverless jobs |
-| `src/pipeline/` | SDP tables and expectations, bronze to gold | Serverless pipeline |
+| `src/pipeline/` | SDP SQL: `bronze/raw_sources.sql` (all raw streaming tables), one file per dataset in `silver/`, `gold/`; pipeline default schema is bronze, silver/gold names are schema-qualified via pipeline configuration | Serverless pipeline |
 | `src/ml/` | Features, training, registration, batch scoring, advisory prompts | Serverless job |
 | `src/app/` | Dash pages, callbacks, Lakebase data access | Databricks Apps |
 | `evidence/` | Text outputs that prove each stage ran | Committed manually |
@@ -174,7 +174,7 @@ Flow: feature branch -> PR (bundle validate in CI) -> merge to main -> deploy pr
 ## 8. Non-functional design
 
 * Cost: daily batch, serverless compute, open low-cost LLM, cached advisories.
-* Limits: 8,060 points/day within Open-Meteo free tier (10k/day, 5k/hour, 600/min, 300k/month).
+* Limits: 8,041 points/day within Open-Meteo free tier (10k/day, 5k/hour, 600/min, 300k/month).
   One location = 1 call only while <=10 variables and <=14 days, so the request stays at that size;
   the ingestion notebook rate-limits to 550/min and 4,800/hour (full grid ~1h45m) and stops a
   run whose weighted calls would exceed `daily_call_budget` (9,500).
