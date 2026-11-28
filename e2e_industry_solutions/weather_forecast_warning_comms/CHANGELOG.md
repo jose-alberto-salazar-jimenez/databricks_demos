@@ -13,6 +13,8 @@ How to use:
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-28
+
 ### Added
 
 * Medallion pipeline (`resources/medallion.pipeline.yml`, serverless SDP, SQL in `src/pipeline/`):
@@ -22,13 +24,7 @@ How to use:
   `location_weather_summary` (today, past and next-days stats, latest ENSO phase). Expectations on
   ids, dates, coordinates and plausible ranges.
 * `daily_refresh` job: `medallion` pipeline task after `ingest_sources`.
-* `evidence/phase3_pipeline.md` with the Costa Rica test run.
-
-### Removed
-
-* To stay within the 30-file limit: the three bronze SQL files are merged into
-  `src/pipeline/bronze/raw_sources.sql` (same tables and flows, so no reprocessing), and
-  `evidence/phase1_foundation.md` + `phase2_ingestion.md` into `evidence/phase1_2_foundation_ingestion.md`.
+* `evidence/phase3_pipeline.md` with the Costa Rica test run, the full-grid run and the lake fix.
 
 ### Changed
 
@@ -42,6 +38,12 @@ How to use:
 
 * Silver forecast keeps the latest ingest per cell, run_date and request_mode, so overlapping
   re-runs of a run_date (test subset, then full grid) no longer duplicate cells.
+
+### Removed
+
+* To stay within the 30-file limit: the three bronze SQL files are merged into
+  `src/pipeline/bronze/raw_sources.sql` (same tables and flows, so no reprocessing), and
+  `evidence/phase1_foundation.md` + `phase2_ingestion.md` into `evidence/phase1_2_foundation_ingestion.md`.
 
 ### Known issues
 
