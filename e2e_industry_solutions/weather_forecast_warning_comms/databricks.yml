@@ -38,11 +38,11 @@ variables:
     description: Mode used by scheduled backfill runs (recent or history)
     default: recent
   llm_endpoint:
-    description: Foundation Model API endpoint for advisories
-    default: databricks-qwen3-next-80b-a3b-instruct
+    description: Unity Catalog model service (system.ai) for advisories
+    default: system.ai.qwen3-next-80b-a3b-instruct
   llm_fallback_endpoint:
-    description: Fallback endpoint if the primary is unavailable
-    default: databricks-gpt-oss-20b
+    description: Fallback model service, used only for rows where the primary call fails
+    default: system.ai.gpt-oss-20b
 
 targets:
   dev:
