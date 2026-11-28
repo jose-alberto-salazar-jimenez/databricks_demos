@@ -13,6 +13,8 @@ How to use:
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-28
+
 ### Added
 
 * Risk flags in `gold.location_weather_summary` (next 3 days): heavy rain >= 50 mm/day, extreme
