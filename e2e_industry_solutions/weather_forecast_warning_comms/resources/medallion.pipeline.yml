@@ -1,0 +1,18 @@
+resources:
+  pipelines:
+    medallion:
+      name: weather_forecast_warning_comms_medallion
+      catalog: ${var.catalog}
+      target: ${var.bronze_schema} # default schema; silver/gold tables are schema-qualified
+      libraries:
+        - glob:
+            include: ../src/pipeline/**
+      root_path: ../src/pipeline
+      serverless: true
+      photon: true
+      channel: current
+      configuration:
+        landing_path: /Volumes/${var.catalog}/${var.bronze_schema}/landing
+        bronze_schema: ${var.bronze_schema}
+        silver_schema: ${var.silver_schema}
+        gold_schema: ${var.gold_schema}

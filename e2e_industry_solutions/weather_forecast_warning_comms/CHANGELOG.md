@@ -13,6 +13,42 @@ How to use:
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-28
+
+### Added
+
+* Medallion pipeline (`resources/medallion.pipeline.yml`, serverless SDP, SQL in `src/pipeline/`):
+  bronze streaming tables `open_meteo_forecast_raw`, `enso_oni_raw`, `gdacs_events_raw` (Auto Loader
+  on the landing volume); silver `dim_location`, `weather_forecast_daily` (daily arrays exploded),
+  `enso_phase_monthly` (ONI parsed, phase at +/-0.5), `extreme_events` (deduplicated); gold
+  `location_weather_summary` (today, past and next-days stats, latest ENSO phase). Expectations on
+  ids, dates, coordinates and plausible ranges.
+* `daily_refresh` job: `medallion` pipeline task after `ingest_sources`.
+* `evidence/phase3_pipeline.md` with the Costa Rica test run, the full-grid run and the lake fix.
+
+### Changed
+
+* Workspace host moved to the new workspace (`dbc-9ce31297-2bf5`); catalogs and schemas recreated.
+* Land grid v2 (`reference/grid_cells_v2`, `source_registry.GRID_DIR`): Natural Earth 10m lakes are
+  removed, 8,060 -> 8,041 cells (14 Lago Titicaca, 5 Lago Gatun). Most forecast models gave Titicaca
+  cells lake-surface highs near -10 C. Other cell ids are unchanged; v1 is kept for audit. New source
+  `natural_earth_lakes`; backfills build the grid if it is missing.
+
+### Fixed
+
+* Silver forecast keeps the latest ingest per cell, run_date and request_mode, so overlapping
+  re-runs of a run_date (test subset, then full grid) no longer duplicate cells.
+
+### Removed
+
+* To stay within the 30-file limit: the three bronze SQL files are merged into
+  `src/pipeline/bronze/raw_sources.sql` (same tables and flows, so no reprocessing), and
+  `evidence/phase1_foundation.md` + `phase2_ingestion.md` into `evidence/phase1_2_foundation_ingestion.md`.
+
+### Known issues
+
+* A GDACS outage (HTTP 400 / timeouts) fails `ingest_sources` and therefore the whole daily run.
+
 ## [1.2.1] - 2026-11-20
 
 ### Changed

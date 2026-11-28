@@ -10,13 +10,32 @@ import source_registry as reg
 from ingest_lib import http_get, write_jsonl, write_text
 
 
+def _bbox(geom):
+    """(xmin, xmax, ymin, ymax) of a GeoJSON geometry."""
+    pts = []
+
+    def walk(c):
+        if isinstance(c[0], (int, float)):
+            pts.append(c)
+        else:
+            for x in c:
+                walk(x)
+    walk(geom["coordinates"])
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return min(xs), max(xs), min(ys), max(ys)
+
+
 def land_reference(spark, root):
-    """Source manifest (every run) plus boundaries, GeoNames dumps and the land grid (if missing)."""
-    ne_path, grid_dir = f"{root}/reference/natural_earth/ne_10m_admin_0_countries.geojson", f"{root}/reference/grid_cells"
+    """Source manifest (every run) plus boundaries, lakes, GeoNames dumps and the land grid (if missing).
+    Grid = lattice points inside a country and outside Natural Earth 10m lakes: forecast models return
+    lake-surface values there (Titicaca highs near -10 C) and nobody lives on the water."""
+    ne_dir, grid_dir = f"{root}/reference/natural_earth", f"{root}/{reg.GRID_DIR}"
+    ne_path, lakes_path = f"{ne_dir}/ne_10m_admin_0_countries.geojson", f"{ne_dir}/ne_10m_lakes.geojson"
     write_jsonl(f"{root}/reference/data_sources/sources.jsonl",  # manifest -> dim_data_source
                 [{"data_source": k, **v} for k, v in reg.SOURCES.items()])
-    if not os.path.exists(ne_path):
-        write_text(ne_path, http_get(reg.url("natural_earth")).text)
+    for path, src in ((ne_path, "natural_earth"), (lakes_path, "natural_earth_lakes")):
+        if not os.path.exists(path):
+            write_text(path, http_get(reg.url(src)).text)
     for iso2 in reg.ISO2.values():
         path = f"{root}/geonames/{iso2}.txt"
         if not os.path.exists(path):
@@ -25,20 +44,32 @@ def land_reference(spark, root):
     if not os.path.exists(grid_dir):
         with open(ne_path, encoding="utf-8") as f:
             ne = json.load(f)
-        rows = [(p["ADM0_A3"], reg.GRID_STEP[p["ADM0_A3"]], json.dumps(feat["geometry"]))
-                for feat in ne["features"] if (p := feat["properties"]).get("ADM0_A3") in reg.GRID_STEP]
+        with open(lakes_path, encoding="utf-8") as f:
+            lakes = json.load(f)
+        sel = [feat for feat in ne["features"] if feat["properties"].get("ADM0_A3") in reg.GRID_STEP]
+        rows = [(f["properties"]["ADM0_A3"], reg.GRID_STEP[f["properties"]["ADM0_A3"]], json.dumps(f["geometry"]))
+                for f in sel]
+        boxes = [_bbox(f["geometry"]) for f in sel]  # keep only lakes that overlap the countries
+        x0, x1 = min(b[0] for b in boxes), max(b[1] for b in boxes)
+        y0, y1 = min(b[2] for b in boxes), max(b[3] for b in boxes)
+        lk = [(json.dumps(f["geometry"]),) for f in lakes["features"]
+              if (b := _bbox(f["geometry"]))[1] >= x0 and b[0] <= x1 and b[3] >= y0 and b[2] <= y1]
         spark.createDataFrame(rows, "iso3 string, step double, geojson string").createOrReplaceTempView("countries")
+        spark.createDataFrame(lk, "geojson string").createOrReplaceTempView("lakes")
         # Global lattice (multiples of step) keeps cell ids stable across runs; land points only.
         spark.sql("""
           WITH b AS (SELECT iso3, step, st_geomfromgeojson(geojson) g FROM countries),
           e AS (SELECT *, cast(floor(st_xmin(g) / step) AS int) i0, cast(ceil(st_xmax(g) / step) AS int) i1,
                           cast(floor(st_ymin(g) / step) AS int) j0, cast(ceil(st_ymax(g) / step) AS int) j1 FROM b),
           p AS (SELECT iso3, step, g, round(i * step, 4) lon, round(j * step, 4) lat FROM e
-                LATERAL VIEW explode(sequence(i0, i1)) AS i LATERAL VIEW explode(sequence(j0, j1)) AS j)
+                LATERAL VIEW explode(sequence(i0, i1)) AS i LATERAL VIEW explode(sequence(j0, j1)) AS j),
+          land AS (SELECT iso3, step, lon, lat FROM p WHERE st_contains(g, st_point(lon, lat, 4326))),
+          lk AS (SELECT st_geomfromgeojson(geojson) lg FROM lakes)
           SELECT concat(iso3, '_', cast(round(step * 111) AS int), 'km_',
                         format_string('%.2f_%.2f', lat, lon)) AS cell_id,
                  iso3, cast(round(step * 111) AS int) AS grid_km, step AS grid_step_deg, lat, lon
-          FROM p WHERE st_contains(g, st_point(lon, lat, 4326))""").write.mode("overwrite").json(grid_dir)
+          FROM land LEFT ANTI JOIN lk ON st_contains(lk.lg, st_point(land.lon, land.lat, 4326))
+          """).write.mode("overwrite").json(grid_dir)
     return grid_dir
 
 

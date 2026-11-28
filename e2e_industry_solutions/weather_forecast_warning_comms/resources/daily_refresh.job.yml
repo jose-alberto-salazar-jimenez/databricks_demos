@@ -1,5 +1,5 @@
-# Daily refresh: land public sources in the landing volume (bronze input).
-# Later phases add tasks: medallion pipeline -> risk scoring -> LLM advisories -> Lakebase sync.
+# Daily refresh: land public sources in the landing volume, then run the medallion pipeline.
+# Later phases add tasks: risk scoring -> LLM advisories -> Lakebase sync.
 resources:
   jobs:
     daily_refresh:
@@ -34,6 +34,11 @@ resources:
               volume: ${resources.volumes.landing.name}
           max_retries: 1
           min_retry_interval_millis: 300000
+        - task_key: medallion
+          depends_on:
+            - task_key: ingest_sources
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.medallion.id}
       tags:
         project: weather_forecast_warning_comms
         layer: ingestion

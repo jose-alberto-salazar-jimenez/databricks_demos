@@ -4,7 +4,7 @@ Location-aware, multilingual early-warning communications for weather, extreme e
 ENSO, built end to end on Databricks for civil protection agencies in Peru, Ecuador,
 Colombia, Panama and Costa Rica.
 
-Version: see [CHANGELOG.md](CHANGELOG.md) | Status: planning (no code deployed yet)
+Version: see [CHANGELOG.md](CHANGELOG.md) | Status: ingestion and medallion pipeline running in dev; ML, advisories, Lakebase and app pending
 
 ## The problem
 
@@ -66,12 +66,13 @@ weather_forecast_warning_comms/
   *.md                Documentation
 ```
 
-## Getting started (once phase 1 lands)
+## Getting started
 
 1. Install the Databricks CLI and authenticate to your workspace (OAuth, no tokens in files).
 2. From this folder: `databricks bundle validate -t dev`, then `databricks bundle deploy -t dev`.
-3. Run the daily job once: `databricks bundle run -t dev daily_refresh`.
-4. Open the app URL shown in the Apps page.
+3. Run the daily job once (ingestion, then the medallion pipeline):
+   `databricks bundle run -t dev daily_refresh`.
+4. Query `gold.location_weather_summary` in the target catalog (app: later phase).
 
 ## Contributing
 
