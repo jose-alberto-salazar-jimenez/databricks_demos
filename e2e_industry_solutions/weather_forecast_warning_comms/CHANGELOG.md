@@ -13,8 +13,19 @@ How to use:
 
 ## [Unreleased]
 
+### Added
+
+* Risk flags in `gold.location_weather_summary` (next 3 days): heavy rain >= 50 mm/day, extreme
+  heat (apparent) >= 41 C, strong wind (gusts) >= 60 km/h, plus 3-day maxima and `warnings`.
+* `silver.dim_town`: 109 main towns (GeoNames) mapped to the nearest land cell.
+* `gold.advisories`: `ai_query` advisories per town, language (ES/EN) and user type, fallback model
+  on failure, `numbers_ok` guardrail column and `numbers_from_forecast` expectation.
+* `evidence/phase3_advisories.md` with counts, guardrail results and a reviewed sample.
+
 ### Changed
 
+* LLM variables use Unity Catalog model service names (`system.ai.qwen3-next-80b-a3b-instruct`,
+  fallback `system.ai.gpt-oss-20b`) and are passed to the pipeline configuration.
 * PLAN.md rewritten as the PoC scope: every FE Bar stage at its smallest working size, GenAI
   advisories on rule-based risk flags, deferred items with reasons (DECISIONS.md #15).
 

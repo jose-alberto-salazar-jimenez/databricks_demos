@@ -5,7 +5,7 @@ and ENSO turned into location-specific, multilingual, preventive advisories, wit
 feedback. Every FE Bar stage is built end to end at its smallest working size; the full product
 is the roadmap (section 7). Public data only, no secrets, evidence readable as text.
 
-Status: phases 1-2 built in dev (ingestion + medallion pipeline, full grid); see CHANGELOG.md.
+Status: phases 1-3 built in dev (ingestion, medallion pipeline, risk flags + advisories); see CHANGELOG.md.
 
 ## 1. Customer problem (industry framing)
 
@@ -39,20 +39,20 @@ Coverage (decided): land grid + towns.
 | --- | --- | --- |
 | Lakeflow | `daily_refresh` job: landing notebook (Open-Meteo, NOAA ONI, GDACS, reference data) -> SDP pipeline bronze/silver/gold with expectations | Built, full grid |
 | Unity Catalog | Dev/prod catalogs, table comments, lineage; add `domain`/`pii` tags and a gold-only grant for the app service principal | Built; tags and grant to add |
-| GenAI | Rule-based risk flags in gold + `gold.advisories` from `ai_query` (2 languages x 3 user types) | To build |
+| GenAI | Rule-based risk flags in gold + `gold.advisories` from `ai_query` (2 languages x 3 user types) | Built |
 | Lakebase | Synced tables from the gold summary and advisories; `citizen_feedback` table written by the app | To build |
 | Genie Agent | Space over the gold tables for agency analysts, with instructions and sample questions | To build |
 | App | One-page Dash app: pick a town, see 13 days, risk flags, ENSO and the advisory; send feedback | To build |
 
 ## 4. Risk flags and advisories (GenAI)
 
-* Flags per cell and day in `gold.location_weather_summary`: heavy rain, heat, strong wind
-  (initial thresholds, tuned on the data: rain >= 50 mm/day, apparent max >= 35 C, gusts >= 60 km/h).
-* Advisories only for flagged cells and the main towns, in ES/EN for citizens, farmers and
-  municipalities; cached per cell, day, language and user type (DECISIONS #7).
+* Flags per cell over the next 3 days in `gold.location_weather_summary`: heavy rain, heat, strong
+  wind (rain >= 50 mm/day, apparent max >= 41 C, gusts >= 60 km/h; 35 C flagged most lowlands).
+* Advisories for the 109 main towns (`silver.dim_town`), flagged or not, in ES/EN for citizens,
+  farmers and municipalities; rebuilt once a day (DECISIONS #7). Flagged cells without a town: roadmap.
 * Model: `databricks-qwen3-next-80b-a3b-instruct`, fallback `databricks-gpt-oss-20b` (DECISIONS #6).
 * Guardrails: prompts get values from gold only; no invented numbers or causes (the smoke test
-  attributed rain to La Nina). A reviewed sample is kept as evidence.
+  attributed rain to La Nina). `numbers_ok` flags any other number; the app shows only passing rows.
 
 ## 5. App, Lakebase and Genie
 
@@ -81,16 +81,15 @@ feedback round trip, Genie Q&A samples, app walkthrough; one text file per phase
 | --- | --- | --- |
 | 1 | Foundation (done) | `bundle validate` passes |
 | 2 | Ingestion + SDP medallion (done) | Gold populated for all 5 countries |
-| 3 | Risk flags + advisories | Advisories in ES/EN for 3 user types, sample reviewed |
+| 3 | Risk flags + advisories (done) | Advisories in ES/EN for 3 user types, sample reviewed |
 | 4 | Lakebase + app | Feedback sent from the app lands in Lakebase for a chosen town |
 | 5 | Genie + governance | Genie answers the sample questions; tags and grant applied |
 | 6 | Evidence, deck, push | Scorer limits met (30 files, 9k chars/file, 90k total), no secrets |
 
 ## 9. Open items
 
-* Confirm the LLM endpoints exist in the new workspace before phase 3.
-* File budget: 24 of 30 used. Removing the ERA5 backfill code (`history_lib.py`,
-  `backfill_sources`, `backfill.job.yml`) from the submitted folder would free 3 files (~11k chars).
+* Size budget: 27 of 30 files and over 90k chars after phase 3. Removing the ERA5 backfill code
+  (`history_lib.py`, `backfill_sources`, `backfill.job.yml`) would free 3 files (~11k chars).
 * Confirm Open-Meteo free-tier terms (non-commercial) fit the demo use.
 
 Decisions and trade-offs: DECISIONS.md. Architecture and data model: ARCHITECTURE.md.

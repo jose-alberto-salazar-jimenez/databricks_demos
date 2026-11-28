@@ -4,7 +4,7 @@ Location-aware, multilingual early-warning communications for weather, extreme e
 ENSO, built end to end on Databricks for civil protection agencies in Peru, Ecuador,
 Colombia, Panama and Costa Rica.
 
-Version: see [CHANGELOG.md](CHANGELOG.md) | Status: proof of concept ([PLAN.md](PLAN.md)); ingestion and medallion pipeline running in dev; advisories, Lakebase, Genie and app pending
+Version: see [CHANGELOG.md](CHANGELOG.md) | Status: proof of concept ([PLAN.md](PLAN.md)); ingestion, medallion pipeline and LLM advisories running in dev; Lakebase, Genie and app pending
 
 ## The problem
 
