@@ -1,4 +1,4 @@
--- Prerequisite: account-level governed tags (create once, see scripts/deploy_governance.py or the UI):
+-- Prerequisite: account-level governed tags (create once, see scripts/deploy_governance_and_genie.py or the UI):
 --   Revenue, Revenue/RecurringRevenue, Revenue/CustomerHealth (key-only)
 --   system.certification_status is a built-in system tag (values certified / deprecated)
 

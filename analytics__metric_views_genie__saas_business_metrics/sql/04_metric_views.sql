@@ -5,7 +5,7 @@
 CREATE OR REPLACE VIEW saas_demo.gold.revenue_monthly_metrics WITH METRICS LANGUAGE YAML AS $$
 version: 1.1
 source: saas_demo.gold.customer_mrr_monthly
-comment: SaaS revenue KPIs (USD) on the customer x month MRR waterfall. MRR and ARR are point-in-time (semiadditive over month). Flow measures are summed. Rates over multiple months are pooled monthly rates.
+comment: SaaS revenue and customer-count KPIs (USD) on the customer x month MRR waterfall. MRR, ARR, active customers and ARPA are point-in-time (semiadditive over month). Flow measures are summed. Rates over multiple months are pooled monthly rates.
 dimensions:
 - name: month
   expr: month
@@ -308,6 +308,57 @@ measures:
   - annual NRR
   - yearly net revenue retention
   - annual net dollar retention
+- name: active_customers
+  expr: COUNT_IF(closing_mrr > 0)
+  window:
+  - order: month
+    semiadditive: last
+    range: current
+  comment: 'Paying customers at month end (closing MRR above 0). Point-in-time (semiadditive): summed across segments but never across months. When month is not grouped it returns the last month in scope.'
+  display_name: Active Customers (month end)
+  synonyms:
+  - active accounts
+  - paying customers
+  - logos
+  - customer count
+- name: new_customers
+  expr: COUNT_IF(new_mrr > 0)
+  comment: Customers who signed up in the period (inside the 24-month window; opening-book customers are not counted). Flow, additive over months.
+  display_name: New Customers
+  synonyms:
+  - new logos
+  - signups
+  - new accounts
+- name: churned_customers
+  expr: SUM(churned_customers)
+  comment: Customers who cancelled in the period. Flow, additive over months.
+  display_name: Churned Customers
+  synonyms:
+  - lost customers
+  - cancellations
+  - churned logos
+- name: net_new_customers
+  expr: MEASURE(new_customers) - MEASURE(churned_customers)
+  comment: New minus churned customers in the period. For a single month this equals active customers at month end minus the month before. Negative means the segment is shrinking by logos.
+  display_name: Net New Customers
+  synonyms:
+  - net new logos
+  - logo growth
+  - net customer change
+- name: arpa
+  expr: MEASURE(mrr) / NULLIF(MEASURE(active_customers), 0)
+  comment: Average revenue per account = month-end MRR / active customers at month end (USD per month). Point-in-time like MRR.
+  display_name: ARPA (month end)
+  format:
+    type: currency
+    currency_code: USD
+    decimal_places:
+      type: exact
+      places: 0
+  synonyms:
+  - average revenue per account
+  - average revenue per customer
+  - revenue per account
 $$
 ;
 
